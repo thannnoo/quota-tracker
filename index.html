@@ -1000,7 +1000,9 @@
         <div class="fg"><label for="f_ph">Phone</label><input type="tel" id="f_ph" placeholder="(555) 000-0000"/></div>
         <div class="fg"><label for="f_em">Email</label><input type="email" id="f_em" placeholder="jane@acme.com"/></div>
         <div class="fsec">Meeting Details</div>
-        <div class="fg"><label for="f_loc">Locations</label><input type="number" id="f_loc" placeholder="1" min="1"/></div>
+        <div class="fg"><label for="f_loc">Locations</label><input type="number" id="f_loc" placeholder="1" min="1" oninput="updateCommHint()"/>
+          <div id="commHint" style="margin-top:5px;font-size:12px;font-weight:600;color:var(--acc);min-height:16px"></div>
+        </div>
         <div class="fg"><label for="f_db">Date Booked *</label><input type="date" id="f_db" required/></div>
         <div class="fg"><label for="f_dm">Meeting Date</label><input type="date" id="f_dm"/></div>
         <div class="fg"><label for="f_tm">Meeting Time</label><input type="time" id="f_tm"/></div>
@@ -1586,7 +1588,25 @@ function openMeetingModal(id=null, prefillDate=null, prefillTime=null){
     document.getElementById('f_lk').value='Medium';
   }
   openModal('mModal');
-  setTimeout(()=>document.getElementById('f_co').focus(),50);
+  setTimeout(()=>{ document.getElementById('f_co').focus(); updateCommHint(); },50);
+}
+
+function calcCommission(locs){
+  const n=parseInt(locs)||0;
+  if(n<=0)  return 0;
+  if(n<=9)  return 50;
+  if(n<=25) return 75;
+  return 100;
+}
+
+function updateCommHint(){
+  const n=parseInt(document.getElementById('f_loc').value)||0;
+  const el=document.getElementById('commHint');
+  if(!el) return;
+  if(!n){ el.textContent=''; return; }
+  const amt=calcCommission(n);
+  const tier=n<=9?'1–9 locations':n<=25?'10–25 locations':'25+ locations';
+  el.textContent=`Est. commission: $${amt} (${tier})`;
 }
 
 function saveMeeting(e){
@@ -1611,9 +1631,17 @@ function saveMeeting(e){
   const prevHappened = prev?.happened || null;
   if(editMId){const i=meetings.findIndex(x=>x.id===editMId);if(i!==-1)meetings[i]=m;toast('Meeting updated ✓');}
   else{meetings.push(m);toast('Meeting added ✓');}
-  if(m.happened==='Yes' && prevHappened!=='Yes' && !commissions.find(c=>c.meetingId===m.id)){
-    commissions.push({id:uid(),meetingId:m.id,company:m.company,contact:m.contact,commAmount:200,date:m.dateMeeting||todayStr(),paidOut:'No',dealValue:'',commRate:'',notes:'Auto-added from meeting'});
-    toast('Commission entry added ($200) ✓');
+  const commAmt=calcCommission(m.locations);
+  const existingComm=commissions.find(c=>c.meetingId===m.id);
+  if(m.happened==='Yes' && !existingComm){
+    // First time marked as happened — auto-create commission
+    commissions.push({id:uid(),meetingId:m.id,company:m.company,contact:m.contact,commAmount:commAmt,date:m.dateMeeting||todayStr(),paidOut:'No',dealValue:'',commRate:'',notes:`Auto-added · ${m.locations||0} location${parseInt(m.locations||0)!==1?'s':''}`});
+    toast(`Commission entry added ($${commAmt}) ✓`);
+  } else if(m.happened==='Yes' && existingComm && existingComm.paidOut!=='Yes' && existingComm.commAmount!==commAmt){
+    // Meeting already happened but locations changed — update unpaid entry
+    existingComm.commAmount=commAmt;
+    existingComm.notes=`Auto-added · ${m.locations||0} location${parseInt(m.locations||0)!==1?'s':''}`;
+    toast(`Commission updated to $${commAmt} ✓`);
   }
   const convChanged=checkProspectConversions();
   saveAll(); closeModal('mModal'); renderMStats(); renderMeetings();
