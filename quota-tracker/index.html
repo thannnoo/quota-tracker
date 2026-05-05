@@ -1,0 +1,3109 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loop AI — Quota Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: linear-gradient(135deg, #e8eeff 0%, #f5f7ff 45%, #ede8ff 100%);
+      --glass: rgba(255,255,255,0.72); --glass-b: rgba(255,255,255,0.65);
+      --shadow: 0 4px 32px rgba(80,100,180,0.10), 0 1px 4px rgba(0,0,0,0.05);
+      --modal: rgba(255,255,255,0.94);
+      --surf: rgba(248,250,255,0.85); --surf-h: rgba(235,240,255,0.9);
+      --bdr: rgba(180,195,230,0.35);
+      --t1: #1a1d2e; --t2: #5c6280; --t3: #9098b8;
+      --acc: #4f7ef8; --acc-s: rgba(79,126,248,0.12); --acc-h: #3d6be0;
+      --inp: rgba(240,244,255,0.7); --inp-b: rgba(160,180,230,0.4);
+      --row-h: rgba(79,126,248,0.04); --sb: rgba(150,170,220,0.4);
+    }
+    [data-theme="dark"] {
+      --bg: linear-gradient(135deg, #080c18 0%, #0d1020 45%, #0c0818 100%);
+      --glass: rgba(18,22,40,0.78); --glass-b: rgba(255,255,255,0.07);
+      --shadow: 0 4px 32px rgba(0,0,0,0.45), 0 1px 4px rgba(0,0,0,0.3);
+      --modal: rgba(14,18,34,0.97);
+      --surf: rgba(22,27,48,0.85); --surf-h: rgba(30,36,62,0.9);
+      --bdr: rgba(255,255,255,0.07);
+      --t1: #e8ecff; --t2: #8892c0; --t3: #4a5280;
+      --acc: #6b94ff; --acc-s: rgba(107,148,255,0.14); --acc-h: #8aadff;
+      --inp: rgba(255,255,255,0.05); --inp-b: rgba(255,255,255,0.10);
+      --row-h: rgba(107,148,255,0.05); --sb: rgba(80,100,160,0.4);
+    }
+
+    html, body {
+      min-height: 100%; background: var(--bg); background-attachment: fixed;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+      color: var(--t1); -webkit-font-smoothing: antialiased;
+    }
+    body { min-height: 100vh; padding: 24px 24px 60px; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--sb); border-radius: 3px; }
+
+    /* ── Header ── */
+    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; gap:16px; flex-wrap:wrap; }
+    .header-left { display:flex; align-items:center; gap:12px; }
+    .logo-mark {
+      width:44px; height:44px; border-radius:12px; background:#fff;
+      border:1.5px solid var(--bdr); display:flex; align-items:center; justify-content:center;
+      box-shadow:0 4px 16px rgba(13,58,76,0.15); flex-shrink:0; padding:5px;
+    }
+    [data-theme="dark"] .logo-mark { background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.1); }
+    .header-title h1 { font-size:20px; font-weight:700; letter-spacing:-0.4px; line-height:1.1; }
+    .header-title span { font-size:12px; color:var(--t3); font-weight:500; }
+    .header-right { display:flex; align-items:center; gap:10px; }
+
+    .theme-toggle {
+      width:44px; height:26px; border-radius:13px; background:var(--bdr);
+      border:1.5px solid var(--bdr); cursor:pointer; position:relative; transition:background .25s; outline:none;
+    }
+    .theme-toggle::after {
+      content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+      background:var(--t2); transition:transform .25s,background .25s;
+    }
+    [data-theme="dark"] .theme-toggle { background:var(--acc); border-color:var(--acc); }
+    [data-theme="dark"] .theme-toggle::after { transform:translateX(18px); background:#fff; }
+
+    /* ── Tabs ── */
+    .tab-nav {
+      display:flex; gap:2px; background:var(--glass); border:1px solid var(--glass-b);
+      backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+      border-radius:14px; padding:5px; margin-bottom:22px;
+      width:fit-content; box-shadow:var(--shadow); flex-wrap:wrap;
+    }
+    .tab-btn {
+      display:inline-flex; align-items:center; gap:7px; padding:8px 16px;
+      border-radius:10px; border:none; cursor:pointer; font-size:13px; font-weight:600;
+      background:transparent; color:var(--t3); transition:all .18s; white-space:nowrap; font-family:inherit;
+    }
+    .tab-btn:hover { color:var(--t2); background:var(--surf-h); }
+    .tab-btn.active { background:var(--acc); color:#fff; box-shadow:0 2px 12px rgba(79,126,248,0.3); }
+    .tab-btn svg { flex-shrink:0; }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* ── Buttons ── */
+    .btn {
+      display:inline-flex; align-items:center; gap:7px; padding:9px 18px;
+      border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; border:none;
+      outline:none; transition:all .18s; white-space:nowrap; font-family:inherit;
+    }
+    .btn-primary { background:var(--acc); color:#fff; box-shadow:0 2px 12px rgba(79,126,248,0.28); }
+    .btn-primary:hover { background:var(--acc-h); transform:translateY(-1px); }
+    .btn-ghost { background:transparent; color:var(--t2); border:1.5px solid var(--bdr); }
+    .btn-ghost:hover { background:var(--surf-h); color:var(--t1); }
+    .btn-danger { background:rgba(239,68,68,0.12); color:#ef4444; border:none; }
+    .btn-danger:hover { background:rgba(239,68,68,0.22); }
+    .btn-sm { padding:6px 12px; font-size:12px; border-radius:8px; }
+
+    /* ── Stats Row ── */
+    .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:20px; }
+    .stat-card {
+      background:var(--glass); border:1px solid var(--glass-b);
+      backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+      border-radius:16px; padding:18px 20px; box-shadow:var(--shadow);
+    }
+    .stat-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--t3); margin-bottom:6px; }
+    .stat-val { font-size:26px; font-weight:800; letter-spacing:-1px; line-height:1; }
+    .stat-val.ca { color:var(--acc); }
+    .stat-val.cg { color:#22c55e; }
+    .stat-val.cam { color:#f59e0b; }
+    .stat-val.cr { color:#ef4444; }
+    .stat-sub { font-size:11.5px; color:var(--t3); margin-top:4px; }
+
+    /* ── Toolbar ── */
+    .toolbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:12px; flex-wrap:wrap; }
+    .toolbar-left { display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap; }
+    .search-wrap { position:relative; flex:1; min-width:180px; }
+    .search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--t3); pointer-events:none; font-size:14px; }
+    .search-input {
+      width:100%; padding:9px 14px 9px 36px; background:var(--glass); border:1px solid var(--glass-b);
+      border-radius:10px; font-size:14px; color:var(--t1); outline:none; backdrop-filter:blur(12px);
+      transition:border-color .18s,box-shadow .18s; font-family:inherit;
+    }
+    .search-input::placeholder { color:var(--t3); }
+    .search-input:focus { border-color:var(--acc); box-shadow:0 0 0 3px var(--acc-s); }
+    .fsel {
+      padding:9px 14px; background:var(--glass); border:1px solid var(--glass-b);
+      border-radius:10px; font-size:13px; color:var(--t2); outline:none; cursor:pointer;
+      backdrop-filter:blur(12px); transition:border-color .18s; font-family:inherit;
+    }
+    .fsel:focus { border-color:var(--acc); box-shadow:0 0 0 3px var(--acc-s); }
+
+    /* ── Table ── */
+    .tcard {
+      background:var(--glass); border:1px solid var(--glass-b);
+      backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+      border-radius:20px; box-shadow:var(--shadow); overflow:hidden;
+    }
+    .twrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; }
+    .t-meetings { min-width:1380px; }
+    .t-comm { min-width:860px; }
+    .t-stats { min-width:700px; }
+    thead tr { background:var(--surf); border-bottom:1px solid var(--bdr); }
+    th {
+      padding:12px 16px; text-align:left; font-size:11px; font-weight:700;
+      text-transform:uppercase; letter-spacing:.7px; color:var(--t3);
+      white-space:nowrap; cursor:pointer; user-select:none; transition:color .15s;
+    }
+    th:hover { color:var(--t2); }
+    th .si { margin-left:3px; opacity:.4; font-size:10px; }
+    th.sorted { color:var(--acc); }
+    th.sorted .si { opacity:1; }
+    th.no-sort { cursor:default; }
+    th.no-sort:hover { color:var(--t3); }
+    tbody tr { border-bottom:1px solid var(--bdr); transition:background .12s; }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr:hover { background:var(--row-h); }
+    td { padding:12px 16px; font-size:13.5px; color:var(--t1); vertical-align:middle; }
+    tfoot tr { background:var(--surf); border-top:2px solid var(--bdr); }
+    tfoot td { padding:12px 16px; font-size:13px; font-weight:700; color:var(--t1); }
+    .tp { font-weight:600; }
+    .ts { font-size:11.5px; color:var(--t3); margin-top:2px; }
+    .tm { color:var(--t2); font-size:13px; }
+    .tsmall { font-size:12px; color:var(--t3); }
+
+    /* ── Badges ── */
+    .badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:11.5px; font-weight:600; white-space:nowrap; }
+    .bd { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    .b-yes { background:rgba(34,197,94,.13); color:#16a34a; }
+    [data-theme="dark"] .b-yes { background:rgba(34,197,94,.15); color:#4ade80; }
+    .b-yes .bd { background:#22c55e; }
+    .b-no { background:rgba(100,116,139,.12); color:#475569; }
+    [data-theme="dark"] .b-no { background:rgba(148,163,184,.10); color:#94a3b8; }
+    .b-no .bd { background:#94a3b8; }
+    .b-noshow { background:rgba(239,68,68,.12); color:#dc2626; }
+    [data-theme="dark"] .b-noshow { background:rgba(239,68,68,.15); color:#f87171; }
+    .b-noshow .bd { background:#ef4444; }
+    .b-resched { background:rgba(139,92,246,.12); color:#7c3aed; }
+    [data-theme="dark"] .b-resched { background:rgba(139,92,246,.15); color:#a78bfa; }
+    .b-resched .bd { background:#8b5cf6; }
+    .b-pend { background:rgba(245,158,11,.12); color:#b45309; }
+    [data-theme="dark"] .b-pend { background:rgba(245,158,11,.15); color:#fbbf24; }
+    .b-pend .bd { background:#f59e0b; }
+    .b-hot { background:rgba(239,68,68,.12); color:#dc2626; }
+    [data-theme="dark"] .b-hot { color:#f87171; }
+    .b-hot .bd { background:#ef4444; }
+    .b-high { background:rgba(245,158,11,.12); color:#b45309; }
+    [data-theme="dark"] .b-high { color:#fbbf24; }
+    .b-high .bd { background:#f59e0b; }
+    .b-med { background:rgba(79,126,248,.12); color:#3b5fc0; }
+    [data-theme="dark"] .b-med { background:rgba(107,148,255,.14); color:#93b4ff; }
+    .b-med .bd { background:var(--acc); }
+    .b-low { background:rgba(100,116,139,.10); color:#64748b; }
+    [data-theme="dark"] .b-low { color:#94a3b8; }
+    .b-low .bd { background:#94a3b8; }
+    .b-paid { background:rgba(34,197,94,.13); color:#16a34a; }
+    [data-theme="dark"] .b-paid { color:#4ade80; }
+    .b-paid .bd { background:#22c55e; }
+    .b-unpaid { background:rgba(245,158,11,.12); color:#b45309; }
+    [data-theme="dark"] .b-unpaid { color:#fbbf24; }
+    .b-unpaid .bd { background:#f59e0b; }
+
+    .actions-cell { display:flex; gap:6px; align-items:center; }
+
+    /* ── Empty ── */
+    .empty { padding:72px 24px; text-align:center; }
+    .empty-icon { font-size:42px; margin-bottom:14px; opacity:.28; }
+    .empty h3 { font-size:16px; font-weight:600; color:var(--t2); margin-bottom:5px; }
+    .empty p { font-size:13.5px; color:var(--t3); }
+
+    /* ── Dashboard layout ── */
+    .dash-2col { display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:18px; }
+    .dash-2eq  { display:grid; grid-template-columns:1fr 1fr;   gap:16px; margin-bottom:18px; }
+    @media(max-width:900px) { .dash-2col,.dash-2eq { grid-template-columns:1fr; } }
+    .dcard {
+      background:var(--glass); border:1px solid var(--glass-b);
+      backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+      border-radius:18px; padding:20px 22px; box-shadow:var(--shadow);
+    }
+    .dcard-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--t3); margin-bottom:16px; }
+    .chart-wrap { width:100%; overflow:hidden; }
+    .chart-legend { display:flex; gap:16px; margin-top:12px; flex-wrap:wrap; }
+    .legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--t2); font-weight:500; }
+    .legend-dot { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+    .goal-mini { margin-bottom:14px; }
+    .goal-mini:last-child { margin-bottom:0; }
+    .goal-mini-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+    .goal-mini-label { font-size:12.5px; font-weight:600; color:var(--t2); }
+    .goal-mini-val { font-size:12px; color:var(--t3); }
+    .ptrack { height:6px; background:var(--bdr); border-radius:3px; overflow:hidden; }
+    .pfill { height:100%; border-radius:3px; transition:width .6s cubic-bezier(.4,0,.2,1); }
+    .pfill.cg  { background:linear-gradient(90deg,#22c55e,#16a34a); }
+    .pfill.cam { background:linear-gradient(90deg,#f59e0b,#d97706); }
+    .pfill.cr  { background:linear-gradient(90deg,#ef4444,#dc2626); }
+    .pfill.ca  { background:linear-gradient(90deg,var(--acc),#a855f7); }
+    .upcoming-item { display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid var(--bdr); }
+    .upcoming-item:last-child { border-bottom:none; padding-bottom:0; }
+    .upcoming-date-box {
+      width:44px; height:44px; border-radius:10px; background:var(--acc-s);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0;
+    }
+    .upcoming-date-box .mon { font-size:10px; font-weight:700; color:var(--acc); text-transform:uppercase; }
+    .upcoming-date-box .day { font-size:18px; font-weight:800; color:var(--acc); line-height:1; }
+    .upcoming-info { flex:1; min-width:0; }
+    .upcoming-company { font-weight:600; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .upcoming-contact { font-size:12px; color:var(--t3); margin-top:2px; }
+
+    /* ── Calendar tab ── */
+    .cal-header { display:flex; align-items:center; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+    .cal-month-label { font-size:18px; font-weight:700; letter-spacing:-.4px; flex:1; text-align:center; min-width:180px; }
+
+    /* View switcher */
+    .cal-view-switcher { display:flex; gap:2px; background:var(--surf); border:1px solid var(--bdr); border-radius:9px; padding:3px; }
+    .cal-view-btn { padding:5px 12px; border-radius:7px; border:none; cursor:pointer; font-size:12px; font-weight:600; background:transparent; color:var(--t3); transition:all .15s; font-family:inherit; white-space:nowrap; }
+    .cal-view-btn:hover { color:var(--t2); background:var(--surf-h); }
+    .cal-view-btn.active { background:var(--acc); color:#fff; box-shadow:0 1px 6px rgba(79,126,248,.3); }
+
+    /* Month view */
+    .cal-grid-wrap { background:var(--glass); border:1px solid var(--glass-b); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-radius:20px; box-shadow:var(--shadow); overflow:hidden; }
+    .cal-dow-row { display:grid; grid-template-columns:repeat(7,1fr); background:var(--surf); border-bottom:1px solid var(--bdr); }
+    .cal-dow-row div { padding:10px 0; text-align:center; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--t3); }
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); }
+    .cal-cell { min-height:96px; padding:8px; border-right:1px solid var(--bdr); border-bottom:1px solid var(--bdr); position:relative; transition:background .12s; cursor:pointer; }
+    .cal-cell:nth-child(7n) { border-right:none; }
+    .cal-cell.cal-other { opacity:.38; pointer-events:none; }
+    .cal-cell.cal-today { background:var(--acc-s); }
+    .cal-cell.cal-today .cal-day-num { background:var(--acc); color:#fff; }
+    .cal-cell:hover:not(.cal-other) { background:var(--surf-h); }
+    .cal-day-num { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; color:var(--t2); margin-bottom:4px; }
+    .cal-event { display:flex; align-items:center; gap:4px; padding:3px 6px; border-radius:6px; font-size:11px; font-weight:600; margin-bottom:3px; cursor:pointer; transition:opacity .12s; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:100%; }
+    .cal-event:hover { opacity:.8; }
+    .cal-event.ce-hot   { background:rgba(239,68,68,.13);  color:#dc2626; }
+    .cal-event.ce-high  { background:rgba(245,158,11,.13); color:#b45309; }
+    .cal-event.ce-med   { background:var(--acc-s);         color:var(--acc); }
+    .cal-event.ce-hap   { background:rgba(34,197,94,.13);  color:#16a34a; }
+    .cal-event.ce-grey  { background:rgba(148,163,184,.13);color:#64748b; }
+    [data-theme="dark"] .cal-event.ce-hot  { color:#f87171; }
+    [data-theme="dark"] .cal-event.ce-high { color:#fbbf24; }
+    [data-theme="dark"] .cal-event.ce-hap  { color:#4ade80; }
+    .cal-legend { display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; }
+    .cal-leg-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--t2); }
+    .cal-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    /* Week / Day view shared */
+    .cal-td-wrap { background:var(--glass); border:1px solid var(--glass-b); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-radius:20px; box-shadow:var(--shadow); overflow:hidden; }
+    .cal-td-head { display:grid; background:var(--surf); border-bottom:2px solid var(--bdr); }
+    .cal-td-head-cell { padding:10px 6px; text-align:center; border-right:1px solid var(--bdr); }
+    .cal-td-head-cell:last-child { border-right:none; }
+    .cal-td-head-cell .dow { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--t3); }
+    .cal-td-head-cell .dnum { width:30px; height:30px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; color:var(--t2); cursor:pointer; transition:all .15s; margin-top:2px; }
+    .cal-td-head-cell .dnum:hover { background:var(--surf-h); color:var(--t1); }
+    .cal-td-head-cell.is-today .dnum { background:var(--acc); color:#fff; }
+    .cal-allday-strip { display:grid; border-bottom:2px solid var(--bdr); background:var(--surf); }
+    .cal-allday-label { padding:6px 4px; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--t3); display:flex; align-items:center; justify-content:center; border-right:1px solid var(--bdr); }
+    .cal-allday-cell { padding:3px 4px; min-height:28px; border-right:1px solid var(--bdr); cursor:pointer; transition:background .1s; }
+    .cal-allday-cell:last-child { border-right:none; }
+    .cal-allday-cell:hover { background:var(--surf-h); }
+    .cal-td-scroll { max-height:540px; overflow-y:auto; }
+    .cal-td-body { display:grid; }
+    .cal-time-col { border-right:1px solid var(--bdr); }
+    .cal-time-label { height:52px; display:flex; align-items:flex-start; justify-content:center; padding-top:5px; font-size:10px; color:var(--t3); font-weight:600; border-bottom:1px solid var(--bdr); }
+    .cal-td-col { border-right:1px solid var(--bdr); position:relative; }
+    .cal-td-col:last-child { border-right:none; }
+    .cal-hour-slot { height:52px; border-bottom:1px solid var(--bdr); cursor:pointer; transition:background .1s; padding:2px 4px; }
+    .cal-hour-slot:hover { background:var(--surf-h); }
+    .cal-hour-slot:last-child { border-bottom:none; }
+
+    /* Day view */
+    .cal-day-head-info { padding:16px 20px; background:var(--surf); border-bottom:2px solid var(--bdr); }
+    .cal-day-title { font-size:20px; font-weight:700; letter-spacing:-.4px; }
+    .cal-day-subtitle { font-size:12px; color:var(--t3); margin-top:2px; }
+
+    /* Quick-add popover */
+    .cal-add-popover { position:fixed; z-index:160; background:var(--modal); border:1px solid var(--glass-b); border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,.22); padding:6px; min-width:185px; animation:tIn .15s ease forwards; }
+    .cal-add-pop-title { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--t3); padding:6px 10px 4px; }
+    .cal-add-pop-btn { display:flex; align-items:center; gap:9px; padding:9px 12px; border-radius:9px; border:none; background:transparent; cursor:pointer; font-size:13px; font-weight:600; color:var(--t2); font-family:inherit; transition:all .15s; width:100%; text-align:left; }
+    .cal-add-pop-btn:hover { background:var(--surf-h); color:var(--t1); }
+
+    /* ── Meeting rows ── */
+    .meeting-row { cursor:pointer; }
+    .row-happened { background:rgba(34,197,94,0.045) !important; }
+    .row-happened:hover { background:rgba(34,197,94,0.09) !important; }
+
+    /* ── Prospect rows ── */
+    .prospect-row { cursor:pointer; }
+    .prospect-row.p-selected { background:var(--acc-s) !important; }
+    .prospect-row.p-converted { border-left:3px solid #22c55e; }
+    .t-prospects { min-width:1100px; }
+
+    /* ── Converted badge ── */
+    .b-converted { background:rgba(34,197,94,.13); color:#16a34a; }
+    [data-theme="dark"] .b-converted { color:#4ade80; }
+    .b-converted .bd { background:#22c55e; }
+
+    /* ── Prospect conversion stats section ── */
+    .conv-kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px; margin-bottom:20px; }
+    .conv-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .conv-table th { text-align:left; font-size:11px; font-weight:700; color:var(--t3); text-transform:uppercase; letter-spacing:.04em; padding:6px 10px; border-bottom:1px solid var(--bdr); }
+    .conv-table td { padding:8px 10px; border-bottom:1px solid var(--bdr); vertical-align:middle; }
+    .conv-table tr:last-child td { border-bottom:none; }
+    .conv-bar-wrap { display:flex; align-items:center; gap:8px; }
+    .conv-bar-bg { flex:1; height:6px; background:var(--bdr); border-radius:3px; overflow:hidden; }
+    .conv-bar-fill { height:100%; border-radius:3px; background:#22c55e; transition:width .4s; }
+
+    /* ── Prospect checkbox column ── */
+    .p-cb-cell { width:36px; padding:0 4px 0 10px !important; }
+    .p-cb { width:16px; height:16px; accent-color:var(--acc); cursor:pointer; flex-shrink:0; }
+
+    /* ── Prospect bulk-action bar ── */
+    .p-bulk-bar {
+      display:none; align-items:center; gap:10px; flex-wrap:wrap;
+      padding:9px 14px; margin-bottom:10px; border-radius:11px;
+      background:var(--acc-s); border:1.5px solid rgba(79,126,248,.25);
+      font-size:13px; font-weight:600; color:var(--acc);
+    }
+    .p-bulk-bar.visible { display:flex; }
+    .p-bulk-count { margin-right:4px; }
+    .p-bulk-bar .btn { font-size:12px; padding:5px 12px; }
+
+    /* ── Prospect / temperature badges ── */
+    .b-cold { background:rgba(148,163,184,.13); color:#475569; }
+    [data-theme="dark"] .b-cold { color:#94a3b8; }
+    .b-cold .bd { background:#94a3b8; }
+    .b-warm { background:rgba(245,158,11,.12); color:#b45309; }
+    [data-theme="dark"] .b-warm { color:#fbbf24; }
+    .b-warm .bd { background:#f59e0b; }
+
+    /* ── Task chips on calendar ── */
+    .cal-event.ce-task { background:rgba(139,92,246,.13); color:#7c3aed; }
+    [data-theme="dark"] .cal-event.ce-task { color:#a78bfa; }
+    .cal-event.ce-task-done { background:rgba(148,163,184,.10); color:#64748b; text-decoration:line-through; }
+
+    /* ── Next Action badges ── */
+    .na-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; white-space:nowrap; }
+    .na-call     { background:rgba(79,126,248,.12); color:var(--acc); }
+    .na-email    { background:rgba(139,92,246,.12); color:#7c3aed; }
+    [data-theme="dark"] .na-email { color:#a78bfa; }
+    .na-followup { background:rgba(245,158,11,.12); color:#b45309; }
+    [data-theme="dark"] .na-followup { color:#fbbf24; }
+    .na-linkedin { background:rgba(14,118,168,.12); color:#0e76a8; }
+    .na-meeting  { background:rgba(34,197,94,.12);  color:#16a34a; }
+    [data-theme="dark"] .na-meeting { color:#4ade80; }
+    .na-none     { background:var(--surf); color:var(--t3); }
+    .na-overdue  { background:rgba(239,68,68,.12); color:#dc2626; }
+    [data-theme="dark"] .na-overdue { color:#f87171; }
+    .na-date     { font-size:10px; color:var(--t3); margin-top:2px; }
+    .na-date.overdue { color:#ef4444; font-weight:700; }
+
+    /* ── Prospect filter row ── */
+    .filter-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center; }
+
+    /* ── Touch counter buttons ── */
+    .touch-row { display:flex; align-items:center; gap:10px; }
+    .touch-counter { display:flex; align-items:center; gap:6px; }
+    .touch-btn { width:28px; height:28px; border-radius:7px; border:1.5px solid var(--inp-b); background:var(--inp); color:var(--t2); font-size:16px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .15s; line-height:1; }
+    .touch-btn:hover { background:var(--acc); color:#fff; border-color:var(--acc); }
+    .touch-val { font-size:20px; font-weight:800; letter-spacing:-.5px; min-width:32px; text-align:center; color:var(--t1); }
+    .touch-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--t3); }
+    .touch-divider { width:1px; height:40px; background:var(--bdr); margin:0 4px; }
+
+    /* ── Draggable tab styles ── */
+    .tab-btn.drag-over { outline:2px dashed var(--acc); outline-offset:2px; border-radius:10px; }
+    .tab-btn[draggable="true"] { user-select:none; }
+
+    /* ── Tasks card on overview ── */
+    .task-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--bdr); }
+    .task-item:last-child { border-bottom:none; padding-bottom:0; }
+    .task-check { width:16px; height:16px; border-radius:4px; border:2px solid var(--bdr); flex-shrink:0; margin-top:2px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+    .task-check.done { background:var(--acc); border-color:var(--acc); color:#fff; font-size:10px; }
+    .task-check:hover { border-color:var(--acc); }
+    .task-info { flex:1; min-width:0; }
+    .task-title { font-size:13.5px; font-weight:600; }
+    .task-title.done { text-decoration:line-through; color:var(--t3); }
+    .task-meta { font-size:11.5px; color:var(--t3); margin-top:2px; }
+    .task-prio-high { color:#ef4444; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+
+    /* ── Clickable cards ── */
+    .stat-link,.dcard-link { cursor:pointer; transition:transform .15s,box-shadow .15s,border-color .15s; }
+    .stat-link:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(79,126,248,0.18); border-color:rgba(79,126,248,0.3); }
+    .dcard-link:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(79,126,248,0.18); border-color:rgba(79,126,248,0.3); }
+
+    /* ── Stats date bar ── */
+    .stats-date-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; padding:12px 16px; background:var(--glass); border:1px solid var(--glass-b); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-radius:14px; box-shadow:var(--shadow); }
+    .date-presets { display:flex; gap:3px; flex-wrap:wrap; }
+    .date-preset-btn { padding:6px 13px; border-radius:8px; border:none; cursor:pointer; font-size:12px; font-weight:600; background:transparent; color:var(--t3); transition:all .15s; font-family:inherit; }
+    .date-preset-btn:hover { color:var(--t2); background:var(--surf-h); }
+    .date-preset-btn.active { background:var(--acc); color:#fff; box-shadow:0 1px 6px rgba(79,126,248,0.3); }
+    .stats-range-label { font-size:11.5px; color:var(--t3); font-weight:500; margin-left:auto; white-space:nowrap; }
+
+    /* ── Perf controls ── */
+    .perf-controls { display:flex; gap:3px; background:var(--surf); border:1px solid var(--bdr); border-radius:9px; padding:3px; }
+    .perf-btn { padding:5px 13px; border-radius:7px; border:none; cursor:pointer; font-size:12px; font-weight:600; background:transparent; color:var(--t3); transition:all .15s; font-family:inherit; }
+    .perf-btn:hover { color:var(--t2); background:var(--surf-h); }
+    .perf-btn.active { background:var(--acc); color:#fff; box-shadow:0 1px 6px rgba(79,126,248,0.3); }
+    .perf-custom-range { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .perf-custom-range input[type=date] { padding:6px 10px; background:var(--inp); border:1px solid var(--inp-b); border-radius:8px; font-size:12px; color:var(--t1); outline:none; font-family:inherit; }
+    .perf-custom-range input[type=date]:focus { border-color:var(--acc); }
+    .perf-custom-range span { font-size:12px; color:var(--t3); }
+
+    /* ── Stats sub-nav ── */
+    .stats-subnav { display:flex; gap:4px; margin-bottom:18px; background:var(--glass); border:1px solid var(--glass-b); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-radius:12px; padding:4px; width:fit-content; box-shadow:var(--shadow); }
+    .stats-sub-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:8px; border:none; cursor:pointer; font-size:12.5px; font-weight:600; background:transparent; color:var(--t3); transition:all .18s; white-space:nowrap; font-family:inherit; }
+    .stats-sub-btn:hover { color:var(--t2); background:var(--surf-h); }
+    .stats-sub-btn.active { background:var(--acc); color:#fff; box-shadow:0 2px 10px rgba(79,126,248,0.28); }
+
+    /* ── Account stats table ── */
+    .acct-table { width:100%; border-collapse:collapse; min-width:700px; }
+    .acct-table th { padding:11px 16px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--t3); white-space:nowrap; }
+    .acct-table td { padding:11px 16px; font-size:13.5px; border-top:1px solid var(--bdr); }
+    .acct-table tbody tr:hover { background:var(--row-h); }
+    .acct-rank { width:28px; height:28px; border-radius:8px; background:var(--acc-s); color:var(--acc); font-size:12px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; }
+    .acct-bar-wrap { width:100px; height:6px; background:var(--bdr); border-radius:3px; overflow:hidden; display:inline-block; vertical-align:middle; margin-left:8px; }
+    .acct-bar-fill { height:100%; border-radius:3px; }
+
+    /* ── Goals tab ── */
+    .goals-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+    .goals-month { font-size:21px; font-weight:700; letter-spacing:-.4px; }
+    .goals-month span { color:var(--acc); }
+    .goals-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:16px; margin-bottom:18px; }
+    .gcard {
+      background:var(--glass); border:1px solid var(--glass-b);
+      backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+      border-radius:20px; padding:22px 24px; box-shadow:var(--shadow);
+    }
+    .gcard-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .gcard-label { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--t3); }
+    .gnums { display:flex; align-items:baseline; gap:5px; margin-bottom:11px; }
+    .gcur { font-size:36px; font-weight:800; letter-spacing:-1.5px; line-height:1; }
+    .gof  { font-size:14px; color:var(--t3); font-weight:500; }
+    .gtgt { font-size:20px; font-weight:700; color:var(--t2); }
+    .gptrack { height:8px; background:var(--bdr); border-radius:4px; overflow:hidden; margin-bottom:9px; }
+    .gpfill { height:100%; border-radius:4px; transition:width .6s cubic-bezier(.4,0,.2,1); }
+    .gpfill.cg  { background:linear-gradient(90deg,#22c55e,#16a34a); }
+    .gpfill.cam { background:linear-gradient(90deg,#f59e0b,#d97706); }
+    .gpfill.cr  { background:linear-gradient(90deg,#ef4444,#dc2626); }
+    .gpfill.ca  { background:linear-gradient(90deg,var(--acc),#a855f7); }
+    .gpace { font-size:12.5px; color:var(--t3); line-height:1.5; }
+    .gpace.ot strong { color:#22c55e; }
+    .gpace.bh strong { color:#ef4444; }
+    .gpace.ex strong { color:var(--acc); }
+    .insight-card {
+      background:var(--acc-s); border:1px solid rgba(79,126,248,.18);
+      border-radius:16px; padding:18px 22px; display:flex; gap:14px; align-items:flex-start;
+    }
+    [data-theme="dark"] .insight-card { border-color:rgba(107,148,255,.13); }
+    .insight-text { font-size:14px; color:var(--t2); line-height:1.6; }
+    .insight-text strong { color:var(--acc); }
+
+    /* ── Statistics tab ── */
+    .stats-section-title {
+      font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.7px;
+      color:var(--t3); margin-bottom:14px; margin-top:6px;
+    }
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:24px; }
+    .kpi-card {
+      background:var(--glass); border:1px solid var(--glass-b);
+      backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+      border-radius:16px; padding:20px; box-shadow:var(--shadow);
+      display:flex; flex-direction:column; gap:4px;
+    }
+    .kpi-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--t3); }
+    .kpi-val   { font-size:30px; font-weight:800; letter-spacing:-1.2px; line-height:1; margin:4px 0 2px; }
+    .kpi-sub   { font-size:12px; color:var(--t3); }
+    .kpi-val.ca  { color:var(--acc); }
+    .kpi-val.cg  { color:#22c55e; }
+    .kpi-val.cam { color:#f59e0b; }
+    .kpi-val.cr  { color:#ef4444; }
+
+    /* Outcome breakdown */
+    .outcome-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+    .outcome-row:last-child { margin-bottom:0; }
+    .outcome-label { font-size:13px; font-weight:600; color:var(--t2); width:100px; flex-shrink:0; }
+    .outcome-bar-wrap { flex:1; height:10px; background:var(--bdr); border-radius:5px; overflow:hidden; }
+    .outcome-bar { height:100%; border-radius:5px; transition:width .5s ease; }
+    .outcome-count { font-size:12px; color:var(--t3); width:60px; text-align:right; flex-shrink:0; }
+
+    /* Stats two-col */
+    .stats-2col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+    @media(max-width:860px) { .stats-2col { grid-template-columns:1fr; } }
+
+    /* Likelihood table */
+    .like-table { width:100%; border-collapse:collapse; }
+    .like-table th { padding:9px 12px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--t3); border-bottom:1px solid var(--bdr); text-align:left; cursor:default; }
+    .like-table td { padding:10px 12px; font-size:13px; border-bottom:1px solid var(--bdr); }
+    .like-table tr:last-child td { border-bottom:none; }
+    .like-table tr:hover td { background:var(--row-h); }
+    .rate-bar-wrap { display:flex; align-items:center; gap:8px; }
+    .rate-bar-bg { flex:1; height:6px; background:var(--bdr); border-radius:3px; overflow:hidden; }
+    .rate-bar-fill { height:100%; border-radius:3px; }
+
+    /* Monthly perf table */
+    .month-table { width:100%; border-collapse:collapse; min-width:640px; }
+    .month-table th { padding:10px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--t3); border-bottom:1px solid var(--bdr); text-align:left; cursor:default; }
+    .month-table td { padding:10px 14px; font-size:13px; border-bottom:1px solid var(--bdr); }
+    .month-table tr:last-child td { border-bottom:none; }
+    .month-table tr:hover td { background:var(--row-h); }
+    .month-table tfoot td { font-weight:700; background:var(--surf); border-top:2px solid var(--bdr); }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position:fixed; inset:0; z-index:100; background:rgba(0,0,0,.35);
+      backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+      display:flex; align-items:center; justify-content:center; padding:20px;
+      opacity:0; pointer-events:none; transition:opacity .22s;
+    }
+    .modal-overlay.open { opacity:1; pointer-events:all; }
+    .modal {
+      background:var(--modal); border:1px solid var(--glass-b); border-radius:22px;
+      box-shadow:0 24px 80px rgba(0,0,0,.25); width:100%; max-width:600px;
+      max-height:92vh; overflow-y:auto; padding:28px 30px;
+      transform:scale(.96) translateY(8px); transition:transform .22s;
+    }
+    .modal-overlay.open .modal { transform:scale(1) translateY(0); }
+    .modal-sm .modal { max-width:380px; }
+    .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+    .modal-title { font-size:18px; font-weight:700; letter-spacing:-.3px; }
+    .modal-close {
+      width:30px; height:30px; border-radius:50%; background:var(--surf); border:none;
+      cursor:pointer; font-size:15px; color:var(--t3);
+      display:flex; align-items:center; justify-content:center; transition:all .15s;
+    }
+    .modal-close:hover { background:var(--surf-h); color:var(--t1); }
+
+    /* ── Form ── */
+    .fgrid { display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+    .fg { display:flex; flex-direction:column; gap:6px; }
+    .fg.full { grid-column:1/-1; }
+    .fsec { grid-column:1/-1; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--t3); padding-top:10px; padding-bottom:2px; border-top:1px solid var(--bdr); margin-top:4px; }
+    label { font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--t3); }
+    input[type="text"],input[type="tel"],input[type="email"],input[type="number"],input[type="date"],select,textarea {
+      padding:10px 13px; background:var(--inp); border:1px solid var(--inp-b);
+      border-radius:10px; font-size:14px; color:var(--t1); outline:none;
+      font-family:inherit; transition:border-color .18s,box-shadow .18s; -webkit-appearance:none;
+    }
+    input:focus,select:focus,textarea:focus { border-color:var(--acc); box-shadow:0 0 0 3px var(--acc-s); }
+    input::placeholder,textarea::placeholder { color:var(--t3); }
+    select option { background:var(--modal); color:var(--t1); }
+    .calc-hint { padding:10px 13px; background:var(--surf); border:1px solid var(--bdr); border-radius:10px; font-size:13px; color:var(--t3); }
+    .calc-hint span { font-weight:700; color:var(--acc); }
+    .modal-footer { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; padding-top:18px; border-top:1px solid var(--bdr); }
+
+    /* ── Toast ── */
+    .toast-wrap { position:fixed; bottom:24px; right:24px; z-index:200; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+    .toast {
+      background:var(--glass); border:1px solid var(--glass-b); backdrop-filter:blur(20px);
+      padding:12px 18px; border-radius:12px; font-size:13.5px; font-weight:500; color:var(--t1);
+      box-shadow:var(--shadow); animation:tIn .25s ease forwards;
+    }
+    .toast.out { animation:tOut .25s ease forwards; }
+    @keyframes tIn  { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes tOut { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(20px)} }
+
+    @media(max-width:600px){
+      body{padding:14px 12px 40px}
+      .fgrid{grid-template-columns:1fr}
+      .fg.full,.fsec{grid-column:1}
+      .modal{padding:22px 18px}
+      .header-title h1{font-size:17px}
+      .tab-btn{padding:7px 11px;font-size:12px}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo-mark">
+      <svg viewBox="0 0 100 102" fill="none" xmlns="http://www.w3.org/2000/svg" width="34" height="34">
+        <defs><clipPath id="hx"><polygon points="50,3 96,27 96,75 50,99 4,75 4,27"/></clipPath></defs>
+        <polygon points="50,3 96,27 96,75 50,99 4,75 4,27" fill="white" stroke="#0d3a4c" stroke-width="5" stroke-linejoin="round"/>
+        <g clip-path="url(#hx)">
+          <rect x="12" y="52" width="10" height="58" rx="2" fill="#0d3a4c"/>
+          <rect x="25" y="37" width="10" height="73" rx="2" fill="#0d3a4c"/>
+          <rect x="38" y="22" width="10" height="88" rx="2" fill="#0d3a4c"/>
+          <rect x="52" y="22" width="10" height="88" rx="2" fill="#d64d2b"/>
+          <rect x="65" y="37" width="10" height="73" rx="2" fill="#d64d2b"/>
+          <rect x="78" y="52" width="10" height="58" rx="2" fill="#d64d2b"/>
+        </g>
+      </svg>
+    </div>
+    <div class="header-title">
+      <h1>Quota Tracker</h1>
+      <span>Loop AI — Meeting Pipeline</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-ghost btn-sm" id="exportBtn" title="Export all data to file">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 7l3 3 3-3M3 11v1a2 2 0 002 2h6a2 2 0 002-2v-1"/></svg>
+      Export
+    </button>
+    <label class="btn btn-ghost btn-sm" id="importLabel" title="Import data from file" style="cursor:pointer;margin:0;">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10V2M5 5l3-3 3 3M3 11v1a2 2 0 002 2h6a2 2 0 002-2v-1"/></svg>
+      Import
+      <input type="file" id="importFile" accept=".json" style="display:none;">
+    </label>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
+  </div>
+</div>
+
+<!-- ── Tab Nav ── -->
+<div class="tab-nav" id="tabNav">
+  <button class="tab-btn active" draggable="true" data-tab="overview" onclick="switchTab('overview',this)">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Overview
+  </button>
+  <button class="tab-btn" draggable="true" data-tab="meetings" onclick="switchTab('meetings',this)">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Meetings
+  </button>
+  <button class="tab-btn" draggable="true" data-tab="prospects" onclick="switchTab('prospects',this)">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+    Prospects
+  </button>
+  <button class="tab-btn" draggable="true" data-tab="goals" onclick="switchTab('goals',this)">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/></svg>
+    Goals
+  </button>
+  <button class="tab-btn" draggable="true" data-tab="commission" onclick="switchTab('commission',this)">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    Commission
+  </button>
+  <button class="tab-btn" draggable="true" data-tab="statistics" onclick="switchTab('statistics',this)">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+    Statistics
+  </button>
+  <button class="tab-btn" draggable="true" data-tab="calendar" onclick="switchTab('calendar',this)">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Calendar
+  </button>
+</div>
+
+<!-- ══════════ OVERVIEW ══════════ -->
+<div id="tab-overview" class="tab-panel active">
+  <div class="stats-row" id="ovStats"></div>
+  <div class="dash-2col">
+    <div class="dcard dcard-link" onclick="goToTab('meetings')" title="Go to Meetings">
+      <div class="dcard-title">Meetings — Last 6 Months</div>
+      <div class="chart-wrap" id="chartWrap"></div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--acc)"></div>Booked</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Happened</div>
+      </div>
+    </div>
+    <div class="dcard dcard-link" onclick="goToTab('goals')" title="Go to Goals">
+      <div class="dcard-title">Goals — <span id="ovGoalMonth" style="color:var(--acc)"></span></div>
+      <div id="ovGoalsMini"></div>
+    </div>
+  </div>
+  <div class="dash-2eq">
+    <div class="dcard dcard-link" onclick="goToTab('meetings')" title="Go to Meetings">
+      <div class="dcard-title">Upcoming Meetings</div>
+      <div id="upcomingList"></div>
+    </div>
+    <div class="dcard dcard-link" onclick="goToTab('commission')" title="Go to Commission">
+      <div class="dcard-title">Commission Summary</div>
+      <div id="ovCommSummary"></div>
+    </div>
+  </div>
+  <div class="dash-2eq">
+    <div class="dcard dcard-link" onclick="goToTab('calendar')" title="Go to Calendar">
+      <div class="dcard-title" style="display:flex;align-items:center;justify-content:space-between">
+        Upcoming Tasks
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openTaskModal()" style="margin-top:-2px">+ Task</button>
+      </div>
+      <div id="ovTasksList"></div>
+    </div>
+    <div class="dcard dcard-link" onclick="goToTab('prospects')" title="Go to Prospects">
+      <div class="dcard-title">Prospects Pipeline</div>
+      <div id="ovProspectsSummary"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MEETINGS ══════════ -->
+<div id="tab-meetings" class="tab-panel">
+  <div class="stats-row" id="mStats"></div>
+  <div class="cal-view-switcher" id="mQuickFilter" style="margin-bottom:12px;width:fit-content">
+    <button class="cal-view-btn active" onclick="mQuickSet('',this)">All</button>
+    <button class="cal-view-btn" onclick="mQuickSet('Pending',this)">Upcoming</button>
+    <button class="cal-view-btn" onclick="mQuickSet('Yes',this)">Happened</button>
+    <button class="cal-view-btn" onclick="mQuickSet('No Show',this)">No Show</button>
+    <button class="cal-view-btn" onclick="mQuickSet('Rescheduled',this)">Rescheduled</button>
+    <button class="cal-view-btn" onclick="mQuickSet('No',this)">Cancelled</button>
+  </div>
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" class="search-input" id="mSearch" placeholder="Search company, contact, DBA…" oninput="renderMeetings()"/>
+      </div>
+      <select class="fsel" id="fAcc" onchange="renderMeetings()">
+        <option value="">All Accepted</option>
+        <option value="Yes">Accepted</option><option value="No">Not Accepted</option><option value="Pending">Pending</option>
+      </select>
+      <select class="fsel" id="fHap" onchange="renderMeetings()">
+        <option value="">All Status</option>
+        <option value="Yes">Happened</option>
+        <option value="No Show">No Show</option>
+        <option value="Rescheduled">Rescheduled</option>
+        <option value="No">Cancelled</option>
+        <option value="Pending">Upcoming</option>
+      </select>
+      <select class="fsel" id="fLike" onchange="renderMeetings()">
+        <option value="">All Likelihood</option>
+        <option value="Hot">Hot</option><option value="High">High</option>
+        <option value="Medium">Medium</option><option value="Low">Low</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" onclick="exportMeetingsCSV()" title="Export to Excel/CSV">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 2v8M5 7l3 3 3-3M3 11v1a2 2 0 002 2h6a2 2 0 002-2v-1"/></svg>
+        Export Excel
+      </button>
+      <button class="btn btn-primary" onclick="openMeetingModal()">+ Add Meeting</button>
+    </div>
+  </div>
+  <div class="tcard">
+    <div class="twrap">
+      <table class="t-meetings">
+        <thead><tr>
+          <th onclick="mSort('company')">Company <span class="si" id="ms-company">↕</span></th>
+          <th onclick="mSort('contact')">Contact <span class="si" id="ms-contact">↕</span></th>
+          <th onclick="mSort('title')">Title <span class="si" id="ms-title">↕</span></th>
+          <th>Phone / Email</th>
+          <th>DBA</th>
+          <th onclick="mSort('locations')">Locs <span class="si" id="ms-locations">↕</span></th>
+          <th onclick="mSort('dateBooked')">Booked <span class="si" id="ms-dateBooked">↕</span></th>
+          <th onclick="mSort('dateMeeting')">Meeting Date <span class="si" id="ms-dateMeeting">↕</span></th>
+          <th>Accepted</th>
+          <th>Happened</th>
+          <th onclick="mSort('likelihood')">Likelihood <span class="si" id="ms-likelihood">↕</span></th>
+        </tr></thead>
+        <tbody id="mBody"></tbody>
+      </table>
+    </div>
+    <div id="mEmpty" class="empty" style="display:none">
+      <div class="empty-icon">📋</div><h3>No meetings yet</h3>
+      <p>Add your first meeting to start tracking your pipeline.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ GOALS ══════════ -->
+<div id="tab-goals" class="tab-panel">
+  <div class="goals-header">
+    <div class="goals-month" id="goalMonthLabel"></div>
+    <button class="btn btn-ghost" onclick="openGoalsModal()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Edit Goals
+    </button>
+  </div>
+  <div class="goals-grid" id="goalsGrid"></div>
+  <div class="insight-card" id="insightCard"></div>
+</div>
+
+<!-- ══════════ COMMISSION ══════════ -->
+<div id="tab-commission" class="tab-panel">
+  <div class="stats-row" id="cStats"></div>
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" class="search-input" id="cSearch" placeholder="Search company…" oninput="renderComm()"/>
+      </div>
+      <select class="fsel" id="cFPaid" onchange="renderComm()">
+        <option value="">All</option><option value="Yes">Paid Out</option><option value="No">Pending</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="openCommModal()">+ Add Entry</button>
+  </div>
+  <div class="tcard">
+    <div class="twrap">
+      <table class="t-comm">
+        <thead><tr>
+          <th onclick="cSort('company')">Company <span class="si" id="cs-company">↕</span></th>
+          <th onclick="cSort('commAmount')">Commission $ <span class="si" id="cs-commAmount">↕</span></th>
+          <th onclick="cSort('date')">Date <span class="si" id="cs-date">↕</span></th>
+          <th onclick="cSort('paidOut')">Paid Out <span class="si" id="cs-paidOut">↕</span></th>
+          <th class="no-sort">Deal Value</th>
+          <th class="no-sort">Comm %</th>
+          <th class="no-sort">Notes</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="cBody"></tbody>
+        <tfoot id="cFoot"></tfoot>
+      </table>
+    </div>
+    <div id="cEmpty" class="empty" style="display:none">
+      <div class="empty-icon">💰</div><h3>No commission entries yet</h3>
+      <p>Add an entry for every meeting that happens.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ PROSPECTS ══════════ -->
+<div id="tab-prospects" class="tab-panel">
+  <div class="stats-row" id="pStats"></div>
+  <div class="toolbar" style="flex-wrap:wrap;gap:10px">
+    <div class="toolbar-left" style="flex-wrap:wrap">
+      <div class="search-wrap" style="min-width:200px">
+        <span class="search-icon">⌕</span>
+        <input type="text" class="search-input" id="pSearch" placeholder="Search company, contact, title…" oninput="renderProspects()"/>
+      </div>
+      <select class="fsel" id="pFStatus" onchange="renderProspects()">
+        <option value="">All Status</option>
+        <option value="Hot">🔥 Hot</option>
+        <option value="Warm">🌤 Warm</option>
+        <option value="Cold">❄️ Cold</option>
+      </select>
+      <select class="fsel" id="pFAction" onchange="renderProspects()">
+        <option value="">All Actions</option>
+        <option value="Call">Call</option>
+        <option value="Email">Email</option>
+        <option value="Follow Up">Follow Up</option>
+        <option value="LinkedIn">LinkedIn</option>
+        <option value="Meeting">Meeting</option>
+        <option value="overdue">Overdue</option>
+        <option value="None">No Action Set</option>
+      </select>
+      <select class="fsel" id="pFTouches" onchange="renderProspects()">
+        <option value="">All Touches</option>
+        <option value="0">0 touches</option>
+        <option value="1-5">1–5 touches</option>
+        <option value="6-10">6–10 touches</option>
+        <option value="10+">10+ touches</option>
+      </select>
+      <select class="fsel" id="pFTitle" onchange="renderProspects()" style="max-width:160px">
+        <option value="">All Titles</option>
+      </select>
+      <select class="fsel" id="pFConv" onchange="renderProspects()">
+        <option value="">All Leads</option>
+        <option value="yes">✅ Converted</option>
+        <option value="no">⏳ Not Converted</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0" title="Import prospects from CSV">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 10V2M5 5l3-3 3 3M3 11v1a2 2 0 002 2h6a2 2 0 002-2v-1"/></svg>
+        Import CSV
+        <input type="file" id="pCsvFile" accept=".csv" style="display:none" onchange="importProspectCSV(event)">
+      </label>
+      <button class="btn btn-primary" onclick="openProspectModal()">+ Add Prospect</button>
+    </div>
+  </div>
+  <div class="p-bulk-bar" id="pBulkBar">
+    <span class="p-bulk-count" id="pBulkCount">0 selected</span>
+    <button class="btn btn-danger btn-sm" onclick="deleteSelectedProspects()">🗑 Delete Selected</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportSelectedProspects()">⬇ Export Selected</button>
+    <button class="btn btn-ghost btn-sm" onclick="clearProspectSelection()">✕ Clear</button>
+  </div>
+  <div class="tcard">
+    <div class="twrap">
+      <table class="t-prospects" style="min-width:1350px">
+        <thead><tr>
+          <th class="p-cb-cell"><input type="checkbox" class="p-cb" id="pSelectAll" onclick="toggleAllProspects(this)" title="Select all"></th>
+          <th onclick="pSort('company')">Company <span class="si" id="ps-company">↕</span></th>
+          <th onclick="pSort('contact')">Contact <span class="si" id="ps-contact">↕</span></th>
+          <th onclick="pSort('title')">Title <span class="si" id="ps-title">↕</span></th>
+          <th>Phone / Email</th>
+          <th onclick="pSort('status')">Status <span class="si" id="ps-status">↕</span></th>
+          <th onclick="pSort('locations')" style="text-align:center">Locations <span class="si" id="ps-locations">↕</span></th>
+          <th onclick="pSort('calls')" style="text-align:center">Calls <span class="si" id="ps-calls">↕</span></th>
+          <th onclick="pSort('emails')" style="text-align:center">Emails <span class="si" id="ps-emails">↕</span></th>
+          <th onclick="pSort('linkedins')" style="text-align:center">LinkedIn <span class="si" id="ps-linkedins">↕</span></th>
+          <th onclick="pSort('touches')" style="text-align:center">Touches <span class="si" id="ps-touches">↕</span></th>
+          <th onclick="pSort('lastTouched')">Last Touched <span class="si" id="ps-lastTouched">↕</span></th>
+          <th onclick="pSort('nextActionDate')">Next Action <span class="si" id="ps-nextActionDate">↕</span></th>
+          <th class="no-sort">Notes</th>
+        </tr></thead>
+        <tbody id="pBody"></tbody>
+      </table>
+    </div>
+    <div id="pEmpty" class="empty" style="display:none">
+      <div class="empty-icon">🎯</div><h3>No prospects yet</h3>
+      <p>Add prospects or import a CSV to build your pipeline.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ STATISTICS ══════════ -->
+<div id="tab-statistics" class="tab-panel">
+  <div class="stats-date-bar">
+    <div class="date-presets">
+      <button class="date-preset-btn active" onclick="setStatsRange('all')">All Time</button>
+      <button class="date-preset-btn" onclick="setStatsRange('thisMonth')">This Month</button>
+      <button class="date-preset-btn" onclick="setStatsRange('30d')">Last 30 Days</button>
+      <button class="date-preset-btn" onclick="setStatsRange('90d')">Last 90 Days</button>
+      <button class="date-preset-btn" onclick="setStatsRange('ytd')">Year to Date</button>
+      <button class="date-preset-btn" onclick="setStatsRange('custom')">Custom</button>
+    </div>
+    <div id="statsCustomRange" class="perf-custom-range" style="display:none">
+      <input type="date" id="statsStart">
+      <span style="color:var(--t3);font-size:12px">to</span>
+      <input type="date" id="statsEnd">
+      <button class="btn btn-primary btn-sm" onclick="applyStatsRange()">Apply</button>
+    </div>
+    <div id="statsRangeLabel" class="stats-range-label"></div>
+  </div>
+  <div class="stats-subnav">
+    <button class="stats-sub-btn active" id="ssb-overview" onclick="switchStatsSub('overview')">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      Overview
+    </button>
+    <button class="stats-sub-btn" id="ssb-account" onclick="switchStatsSub('account')">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s2-3 6-3 6 3 6 3"/><circle cx="8" cy="5" r="3"/></svg>
+      By Account
+    </button>
+  </div>
+  <div id="statsContent"></div>
+  <div id="statsAccountContent" style="display:none"></div>
+</div>
+
+<!-- ══════════ CALENDAR ══════════ -->
+<div id="tab-calendar" class="tab-panel">
+  <div class="cal-header">
+    <button class="btn btn-ghost btn-sm" onclick="calNav(-1)">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="10,3 5,8 10,13"/></svg>
+    </button>
+    <div class="cal-month-label" id="calMonthLabel"></div>
+    <button class="btn btn-ghost btn-sm" onclick="calNav(1)">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6,3 11,8 6,13"/></svg>
+    </button>
+    <button class="btn btn-ghost btn-sm" onclick="calGoToday()" id="calTodayBtn">Today</button>
+    <div class="cal-view-switcher">
+      <button class="cal-view-btn active" id="cvb-month" onclick="calSetView('month')">Month</button>
+      <button class="cal-view-btn" id="cvb-week" onclick="calSetView('week')">Week</button>
+      <button class="cal-view-btn" id="cvb-day" onclick="calSetView('day')">Day</button>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openTaskModal()">+ Task / Note</button>
+  </div>
+  <div id="calContent"></div>
+  <div class="cal-legend">
+    <div class="cal-leg-item"><span class="cal-dot" style="background:#ef4444"></span>Hot</div>
+    <div class="cal-leg-item"><span class="cal-dot" style="background:#f59e0b"></span>High</div>
+    <div class="cal-leg-item"><span class="cal-dot" style="background:var(--acc)"></span>Medium/Low</div>
+    <div class="cal-leg-item"><span class="cal-dot" style="background:#22c55e"></span>Happened</div>
+    <div class="cal-leg-item"><span class="cal-dot" style="background:#94a3b8"></span>Cancelled/No-show</div>
+    <div class="cal-leg-item"><span class="cal-dot" style="background:#8b5cf6"></span>Task/Note</div>
+  </div>
+</div>
+
+<!-- ══════════ MEETING MODAL ══════════ -->
+<div class="modal-overlay" id="mModal" onclick="onOvr(event,'mModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="mModalTitle">Add Meeting</div>
+      <button class="modal-close" onclick="closeModal('mModal')">✕</button>
+    </div>
+    <form onsubmit="saveMeeting(event)">
+      <div class="fgrid">
+        <div class="fg"><label for="f_co">Company *</label><input type="text" id="f_co" placeholder="Acme Corp" required/></div>
+        <div class="fg"><label for="f_dba">DBA</label><input type="text" id="f_dba" placeholder="The Corner Store"/></div>
+        <div class="fsec">Contact Information</div>
+        <div class="fg"><label for="f_ct">Contact Name *</label><input type="text" id="f_ct" placeholder="Jane Smith" required/></div>
+        <div class="fg"><label for="f_ttl">Job Title</label><input type="text" id="f_ttl" placeholder="VP of Operations"/></div>
+        <div class="fg"><label for="f_ph">Phone</label><input type="tel" id="f_ph" placeholder="(555) 000-0000"/></div>
+        <div class="fg"><label for="f_em">Email</label><input type="email" id="f_em" placeholder="jane@acme.com"/></div>
+        <div class="fsec">Meeting Details</div>
+        <div class="fg"><label for="f_loc">Locations</label><input type="number" id="f_loc" placeholder="1" min="1"/></div>
+        <div class="fg"><label for="f_db">Date Booked *</label><input type="date" id="f_db" required/></div>
+        <div class="fg"><label for="f_dm">Meeting Date</label><input type="date" id="f_dm"/></div>
+        <div class="fg"><label for="f_tm">Meeting Time</label><input type="time" id="f_tm"/></div>
+        <div class="fg"><label for="f_lk">Likelihood</label>
+          <select id="f_lk"><option value="Hot">Hot</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select>
+        </div>
+        <div class="fg"><label for="f_ac">Accepted?</label>
+          <select id="f_ac"><option value="Pending">Pending</option><option value="Yes">Yes</option><option value="No">No</option></select>
+        </div>
+        <div class="fg"><label for="f_hp">Outcome</label>
+          <select id="f_hp">
+            <option value="Pending">Upcoming</option>
+            <option value="Yes">Happened</option>
+            <option value="No Show">No Show</option>
+            <option value="Rescheduled">Rescheduled</option>
+            <option value="No">Cancelled</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" id="mDeleteBtn" style="display:none;margin-right:auto" onclick="delMeetingFromModal()">Delete</button>
+        <button type="button" class="btn btn-ghost" onclick="closeModal('mModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="mSaveBtn">Save Meeting</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════ COMMISSION MODAL ══════════ -->
+<div class="modal-overlay" id="cModal" onclick="onOvr(event,'cModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="cModalTitle">Add Commission Entry</div>
+      <button class="modal-close" onclick="closeModal('cModal')">✕</button>
+    </div>
+    <form onsubmit="saveComm(event)">
+      <div class="fgrid">
+        <div class="fg"><label for="c_co">Company *</label><input type="text" id="c_co" placeholder="Acme Corp" required/></div>
+        <div class="fg"><label for="c_ct">Contact Name</label><input type="text" id="c_ct" placeholder="Jane Smith"/></div>
+        <div class="fg"><label for="c_amt">Commission Amount ($) *</label><input type="number" id="c_amt" placeholder="250.00" min="0" step="0.01" required/></div>
+        <div class="fg"><label for="c_date">Date</label><input type="date" id="c_date"/></div>
+        <div class="fg"><label for="c_paid">Paid Out?</label>
+          <select id="c_paid"><option value="No">No — Pending</option><option value="Yes">Yes — Paid</option></select>
+        </div>
+        <div class="fg"></div>
+        <div class="fsec">Optional — Deal Details</div>
+        <div class="fg"><label for="c_dv">Deal Value ($)</label><input type="number" id="c_dv" placeholder="5000" min="0" step="0.01" oninput="calcHint()"/></div>
+        <div class="fg"><label for="c_cr">Commission %</label><input type="number" id="c_cr" placeholder="10" min="0" max="100" step="0.1" oninput="calcHint()"/></div>
+        <div class="fg full"><label>Calculated (reference only)</label><div class="calc-hint" id="calcHint">Fill in Deal Value + % above to see calculated amount</div></div>
+        <div class="fg full"><label for="c_notes">Notes</label><input type="text" id="c_notes" placeholder="Any context…"/></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('cModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="cSaveBtn">Save Entry</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════ GOALS MODAL ══════════ -->
+<div class="modal-overlay modal-sm" id="gModal" onclick="onOvr(event,'gModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Monthly Goals</div>
+      <button class="modal-close" onclick="closeModal('gModal')">✕</button>
+    </div>
+    <form onsubmit="saveGoals(event)">
+      <div class="fgrid" style="grid-template-columns:1fr">
+        <div class="fg"><label for="g_bk">Meetings Booked / month</label><input type="number" id="g_bk" min="1"/></div>
+        <div class="fg"><label for="g_hp">Meetings Happened / month</label><input type="number" id="g_hp" min="1"/></div>
+        <div class="fg"><label for="g_cm">Commission Target ($ / month)</label><input type="number" id="g_cm" min="0" step="100"/></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('gModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Goals</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════ TASK MODAL ══════════ -->
+<div class="modal-overlay" id="tkModal" onclick="onOvr(event,'tkModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="tkModalTitle">Add Task / Note</div>
+      <button class="modal-close" onclick="closeModal('tkModal')">✕</button>
+    </div>
+    <form onsubmit="saveTask(event)">
+      <div class="fgrid">
+        <div class="fg full"><label for="tk_title">Title *</label><input type="text" id="tk_title" placeholder="Follow up with Acme…" required/></div>
+        <div class="fg"><label for="tk_date">Due Date *</label><input type="date" id="tk_date" required/></div>
+        <div class="fg"><label for="tk_time">Time (optional)</label><input type="time" id="tk_time"/></div>
+        <div class="fg"><label for="tk_type">Type</label>
+          <select id="tk_type">
+            <option value="Task">Task</option>
+            <option value="Note">Note</option>
+            <option value="Follow-up">Follow-up</option>
+            <option value="Reminder">Reminder</option>
+          </select>
+        </div>
+        <div class="fg"><label for="tk_prio">Priority</label>
+          <select id="tk_prio">
+            <option value="Normal">Normal</option>
+            <option value="High">High</option>
+          </select>
+        </div>
+        <div class="fg"><label for="tk_done">Status</label>
+          <select id="tk_done">
+            <option value="No">Open</option>
+            <option value="Yes">Done</option>
+          </select>
+        </div>
+        <div class="fg full"><label for="tk_notes">Notes</label><textarea id="tk_notes" rows="3" placeholder="Any additional context…" style="resize:vertical"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" id="tkDeleteBtn" style="display:none;margin-right:auto" onclick="delTaskFromModal()">Delete</button>
+        <button type="button" class="btn btn-ghost" onclick="closeModal('tkModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="tkSaveBtn">Save Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════ PROSPECT MODAL ══════════ -->
+<div class="modal-overlay" id="prModal" onclick="onOvr(event,'prModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="prModalTitle">Add Prospect</div>
+      <button class="modal-close" onclick="closeModal('prModal')">✕</button>
+    </div>
+    <form onsubmit="saveProspect(event)">
+      <div class="fgrid">
+        <div class="fg"><label for="pr_co">Company *</label><input type="text" id="pr_co" placeholder="Acme Corp" required/></div>
+        <div class="fg"><label for="pr_dba">DBA</label><input type="text" id="pr_dba" placeholder="The Corner Store"/></div>
+        <div class="fsec">Contact Information</div>
+        <div class="fg"><label for="pr_ct">Contact Name *</label><input type="text" id="pr_ct" placeholder="Jane Smith" required/></div>
+        <div class="fg"><label for="pr_ttl">Job Title</label><input type="text" id="pr_ttl" placeholder="VP of Operations"/></div>
+        <div class="fg"><label for="pr_ph">Phone</label><input type="tel" id="pr_ph" placeholder="(555) 000-0000"/></div>
+        <div class="fg"><label for="pr_em">Email</label><input type="email" id="pr_em" placeholder="jane@acme.com"/></div>
+        <div class="fsec">Status & Locations</div>
+        <div class="fg"><label for="pr_st">Temperature</label>
+          <select id="pr_st">
+            <option value="Cold">Cold</option>
+            <option value="Warm">Warm</option>
+            <option value="Hot">Hot</option>
+          </select>
+        </div>
+        <div class="fg"><label for="pr_locs">Locations</label><input type="number" id="pr_locs" min="0" placeholder="1" style="width:100%"/></div>
+        <div class="fg"><label for="pr_lt">Last Touched</label><input type="date" id="pr_lt"/></div>
+        <div class="fg full">
+          <label>Touches</label>
+          <div class="touch-row">
+            <div class="touch-counter">
+              <button type="button" class="touch-btn" onclick="adjTouch('calls',-1)">−</button>
+              <div>
+                <div class="touch-val" id="pr_calls_display">0</div>
+                <div class="touch-label">Calls</div>
+              </div>
+              <button type="button" class="touch-btn" onclick="adjTouch('calls',1)">+</button>
+            </div>
+            <div class="touch-divider"></div>
+            <div class="touch-counter">
+              <button type="button" class="touch-btn" onclick="adjTouch('emails',-1)">−</button>
+              <div>
+                <div class="touch-val" id="pr_emails_display">0</div>
+                <div class="touch-label">Emails</div>
+              </div>
+              <button type="button" class="touch-btn" onclick="adjTouch('emails',1)">+</button>
+            </div>
+            <div class="touch-divider"></div>
+            <div class="touch-counter">
+              <button type="button" class="touch-btn" onclick="adjTouch('linkedins',-1)">−</button>
+              <div>
+                <div class="touch-val" id="pr_linkedins_display">0</div>
+                <div class="touch-label">LinkedIn</div>
+              </div>
+              <button type="button" class="touch-btn" onclick="adjTouch('linkedins',1)">+</button>
+            </div>
+            <div class="touch-divider"></div>
+            <div style="text-align:center">
+              <div class="touch-val" id="pr_total_display" style="color:var(--acc)">0</div>
+              <div class="touch-label">Total</div>
+            </div>
+          </div>
+          <input type="hidden" id="pr_calls" value="0"/>
+          <input type="hidden" id="pr_emails" value="0"/>
+          <input type="hidden" id="pr_linkedins" value="0"/>
+        </div>
+        <div class="fsec">Next Action</div>
+        <div class="fg"><label for="pr_na_type">Action Type</label>
+          <select id="pr_na_type" onchange="toggleNaDate()">
+            <option value="None">— None —</option>
+            <option value="Call">📞 Call</option>
+            <option value="Email">✉️ Email</option>
+            <option value="Follow Up">🔁 Follow Up</option>
+            <option value="LinkedIn">💼 LinkedIn</option>
+            <option value="Meeting">📅 Book Meeting</option>
+          </select>
+        </div>
+        <div class="fg" id="pr_na_date_wrap">
+          <label for="pr_na_date">Due Date</label>
+          <input type="date" id="pr_na_date"/>
+        </div>
+        <div class="fg full" id="pr_na_cal_hint" style="display:none">
+          <div class="calc-hint">📅 This action will automatically appear on your calendar as a task.</div>
+        </div>
+        <div class="fg full"><label for="pr_notes">Notes</label><textarea id="pr_notes" rows="3" placeholder="Notes on this prospect, action details, follow-up context…" style="resize:vertical"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" id="prDeleteBtn" style="display:none;margin-right:auto" onclick="delProspectFromModal()">Delete</button>
+        <button type="button" class="btn btn-ghost" onclick="closeModal('prModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="prSaveBtn">Save Prospect</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ── Storage ─────────────────────────────────────────────────────────────────
+const KM='lq_meetings_v2', KC='lq_comm_v2', KG='lq_goals_v1', KT='lq_theme';
+const KP='lq_prospects_v1', KTK='lq_tasks_v1', KTAB='lq_tab_order_v1';
+let meetings    = JSON.parse(localStorage.getItem(KM)||'[]');
+let commissions = JSON.parse(localStorage.getItem(KC)||'[]');
+let goals       = JSON.parse(localStorage.getItem(KG)||'{"bookings":20,"happened":15,"commission":5000}');
+let prospects   = JSON.parse(localStorage.getItem(KP)||'[]');
+let tasks       = JSON.parse(localStorage.getItem(KTK)||'[]');
+meetings.forEach(m=>{ if(!m.id) m.id=uid(); m.title=m.title||''; m.email=m.email||''; });
+prospects.forEach(p=>{ if(!p.id) p.id=uid(); p.calls=p.calls||0; p.emails=p.emails||0; p.linkedins=p.linkedins||0; });
+
+let editMId=null, editCId=null, editTkId=null, editPrId=null;
+let mSK='dateMeeting', mSD=1;
+let cSK='date', cSD=-1;
+let pSK='company', pSD=1;
+let selectedProspects=new Set();
+let perfMode='month', perfCustomStart='', perfCustomEnd='';
+let statsRangePreset='all', statsRangeStart='', statsRangeEnd='';
+let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
+// calView and calSelectedDate declared in Calendar section below
+
+function saveAll(){
+  localStorage.setItem(KM,JSON.stringify(meetings));
+  localStorage.setItem(KC,JSON.stringify(commissions));
+  localStorage.setItem(KG,JSON.stringify(goals));
+  localStorage.setItem(KP,JSON.stringify(prospects));
+  localStorage.setItem(KTK,JSON.stringify(tasks));
+}
+
+// ── Export / Import ──────────────────────────────────────────────────────────
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  const data={meetings,commissions,goals,prospects,tasks,exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`quota-tracker-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+document.getElementById('importFile').addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(!d.meetings||!Array.isArray(d.meetings)) throw new Error('Invalid file');
+      if(!confirm(`This will replace all current data with the backup from ${d.exportedAt?new Date(d.exportedAt).toLocaleDateString():'this file'}.\n\nContinue?`)) return;
+      meetings=d.meetings||[];
+      commissions=d.commissions||[];
+      goals=d.goals||{bookings:20,happened:15,commission:5000};
+      prospects=d.prospects||[];
+      tasks=d.tasks||[];
+      meetings.forEach(m=>{if(!m.id)m.id=uid();m.title=m.title||'';m.email=m.email||'';});
+      prospects.forEach(p=>{if(!p.id)p.id=uid();p.calls=p.calls||0;p.emails=p.emails||0;p.linkedins=p.linkedins||0;});
+      saveAll();
+      renderMStats(); renderMeetings(); renderComm(); renderGoals(); renderOverview(); renderProspects();
+      alert('Data imported successfully!');
+    }catch(err){ alert('Could not read file. Make sure it\'s a valid quota tracker backup.'); }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+});
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtD(d){ if(!d) return '—'; const[y,m,dy]=d.split('-'); return `${+m}/${+dy}/${y.slice(2)}`; }
+function fmtM(n){ return '$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtPct(n,d){ return d>0 ? (n/d*100).toFixed(1)+'%' : '—'; }
+function thisMonth(){ const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; }
+function inThisMonth(d){ return d&&d.slice(0,7)===thisMonth(); }
+function daysInMo(){ const n=new Date(); return new Date(n.getFullYear(),n.getMonth()+1,0).getDate(); }
+function todayDOM(){ return new Date().getDate(); }
+function daysLeft(){ return daysInMo()-todayDOM(); }
+function moStartStr(){ const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-01`; }
+function moEndStr(){ const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(new Date(n.getFullYear(),n.getMonth()+1,0).getDate()).padStart(2,'0')}`; }
+function bizDaysInMonth(){ return bizDays(moStartStr(), moEndStr()); }
+function bizDaysGone(){ return bizDays(moStartStr(), todayStr()); }
+function bizDaysLeft(){
+  const n=new Date(), end=moEndStr();
+  const tom=new Date(n); tom.setDate(n.getDate()+1);
+  const tomStr=tom.toISOString().slice(0,10);
+  if(tomStr>end) return 0;
+  return bizDays(tomStr, end);
+}
+function likeOrd(l){ return {Hot:0,High:1,Medium:2,Low:3}[l]??4; }
+function monthName(){ return new Date().toLocaleDateString('en-US',{month:'long',year:'numeric'}); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function bizDays(startStr,endStr){
+  let count=0;
+  const cur=new Date(startStr+'T00:00:00'), end=new Date(endStr+'T00:00:00');
+  while(cur<=end){ const d=cur.getDay(); if(d!==0&&d!==6) count++; cur.setDate(cur.getDate()+1); }
+  return Math.max(count,1);
+}
+function daysUntil(d){
+  if(!d) return '';
+  const diff=Math.round((new Date(d+'T00:00:00')-new Date(todayStr()+'T00:00:00'))/86400000);
+  if(diff===0) return 'Today'; if(diff===1) return 'Tomorrow';
+  if(diff<0) return `${Math.abs(diff)}d ago`; return `In ${diff}d`;
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(name,btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='overview')   renderOverview();
+  if(name==='goals')      renderGoals();
+  if(name==='commission') { renderCommStats(); renderComm(); }
+  if(name==='statistics'){ updateStatsRangeLabel(); renderStatistics(); }
+  if(name==='calendar') renderCalendar();
+  if(name==='prospects') renderProspects();
+}
+function goToTab(name){
+  const btn=document.querySelector(`.tab-btn[onclick*="'${name}'"]`);
+  if(btn) switchTab(name,btn);
+}
+
+// ── Badges ────────────────────────────────────────────────────────────────────
+function hapB(v){
+  const map={
+    'Yes':    ['b-yes',   'Happened'],
+    'No':     ['b-no',    'Cancelled'],
+    'No Show':['b-noshow','No Show'],
+    'Rescheduled':['b-resched','Rescheduled'],
+    'Pending':['b-pend',  'Upcoming'],
+  };
+  const[c,l]=map[v]||['b-pend',v||'Upcoming'];
+  return `<span class="badge ${c}"><span class="bd"></span>${l}</span>`;
+}
+function ynB(v){
+  if(v==='Yes') return `<span class="badge b-yes"><span class="bd"></span>Yes</span>`;
+  if(v==='No')  return `<span class="badge b-no"><span class="bd"></span>No</span>`;
+  return `<span class="badge b-pend"><span class="bd"></span>Pending</span>`;
+}
+function likeB(v){
+  const m={Hot:['b-hot','Hot'],High:['b-high','High'],Medium:['b-med','Medium'],Low:['b-low','Low']};
+  const[c,l]=m[v]||['b-low',v];
+  return `<span class="badge ${c}"><span class="bd"></span>${l}</span>`;
+}
+function paidB(v){
+  if(v==='Yes') return `<span class="badge b-paid"><span class="bd"></span>Paid</span>`;
+  return `<span class="badge b-unpaid"><span class="bd"></span>Pending</span>`;
+}
+
+// ── OVERVIEW ──────────────────────────────────────────────────────────────────
+function renderOverview(){
+  const bookedMo  = meetings.filter(m=>inThisMonth(m.dateBooked)).length;
+  const hapMo     = meetings.filter(m=>m.happened==='Yes'&&inThisMonth(m.dateMeeting)).length;
+  const commPaid  = commissions.filter(c=>c.paidOut==='Yes').reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
+  const commPend  = commissions.filter(c=>c.paidOut!=='Yes').reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
+  document.getElementById('ovStats').innerHTML=`
+    <div class="stat-card stat-link" onclick="goToTab('meetings')" title="Go to Meetings"><div class="stat-label">Booked This Month</div><div class="stat-val ca">${bookedMo}</div><div class="stat-sub">of ${goals.bookings} goal</div></div>
+    <div class="stat-card stat-link" onclick="goToTab('meetings')" title="Go to Meetings"><div class="stat-label">Happened This Month</div><div class="stat-val cg">${hapMo}</div><div class="stat-sub">of ${goals.happened} goal</div></div>
+    <div class="stat-card stat-link" onclick="goToTab('commission')" title="Go to Commission"><div class="stat-label">Commission Earned</div><div class="stat-val cg">${fmtM(commPaid)}</div><div class="stat-sub">paid out</div></div>
+    <div class="stat-card stat-link" onclick="goToTab('commission')" title="Go to Commission"><div class="stat-label">Commission Pending</div><div class="stat-val cam">${fmtM(commPend)}</div><div class="stat-sub">awaiting payout</div></div>
+  `;
+  drawBarChart();
+  document.getElementById('ovGoalMonth').textContent=new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'});
+  const gItems=[
+    {label:'Meetings Booked',  cur:bookedMo, goal:goals.bookings},
+    {label:'Meetings Happened',cur:hapMo,    goal:goals.happened},
+    {label:'Commission',       cur:commPaid, goal:goals.commission, money:true},
+  ];
+  document.getElementById('ovGoalsMini').innerHTML=gItems.map(g=>{
+    const pct=Math.min(g.goal>0?g.cur/g.goal:0,1);
+    const cls=pct>=1?'ca':pct>=.7?'cg':pct>=.4?'cam':'cr';
+    return `<div class="goal-mini">
+      <div class="goal-mini-header">
+        <div class="goal-mini-label">${g.label}</div>
+        <div class="goal-mini-val">${g.money?fmtM(g.cur):g.cur} / ${g.money?fmtM(g.goal):g.goal}</div>
+      </div>
+      <div class="ptrack"><div class="pfill ${cls}" style="width:${(pct*100).toFixed(1)}%"></div></div>
+    </div>`;
+  }).join('');
+
+  const today=todayStr();
+  const upcoming=meetings.filter(m=>m.dateMeeting&&m.dateMeeting>=today&&m.happened==='Pending')
+    .sort((a,b)=>a.dateMeeting<b.dateMeeting?-1:1).slice(0,5);
+  const ulEl=document.getElementById('upcomingList');
+  if(!upcoming.length){ulEl.innerHTML='<div style="color:var(--t3);font-size:13.5px;padding:8px 0">No upcoming meetings scheduled.</div>';}
+  else{ulEl.innerHTML=upcoming.map(m=>{
+    const dt=new Date(m.dateMeeting+'T00:00:00');
+    return `<div class="upcoming-item">
+      <div class="upcoming-date-box"><div class="mon">${dt.toLocaleDateString('en-US',{month:'short'})}</div><div class="day">${dt.getDate()}</div></div>
+      <div class="upcoming-info">
+        <div class="upcoming-company">${esc(m.company)}</div>
+        <div class="upcoming-contact">${esc(m.contact)}${m.title?` · ${esc(m.title)}`:''}</div>
+      </div>
+      <div style="font-size:11px;color:var(--t3);white-space:nowrap">${daysUntil(m.dateMeeting)}</div>
+    </div>`;
+  }).join('');}
+
+  const cTotal=commissions.reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
+  const cPaidCount=commissions.filter(c=>c.paidOut==='Yes').length;
+  document.getElementById('ovCommSummary').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--bdr)">
+        <span style="font-size:13px;color:var(--t2)">Total Earned</span>
+        <span style="font-size:20px;font-weight:800;letter-spacing:-.5px;color:#22c55e">${fmtM(commPaid)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--bdr)">
+        <span style="font-size:13px;color:var(--t2)">Pending Payout</span>
+        <span style="font-size:20px;font-weight:800;letter-spacing:-.5px;color:#f59e0b">${fmtM(commPend)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--bdr)">
+        <span style="font-size:13px;color:var(--t2)">All-Time Total</span>
+        <span style="font-size:20px;font-weight:800;letter-spacing:-.5px;color:var(--acc)">${fmtM(cTotal)}</span>
+      </div>
+      <div style="font-size:13px;color:var(--t3)">${cPaidCount} paid / ${commissions.length} total entries</div>
+    </div>`;
+}
+
+function drawBarChart(){
+  const months=[];
+  const now=new Date();
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push({key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:d.toLocaleDateString('en-US',{month:'short'})});
+  }
+  const booked  =months.map(mo=>meetings.filter(m=>m.dateBooked&&m.dateBooked.slice(0,7)===mo.key).length);
+  const happened=months.map(mo=>meetings.filter(m=>m.happened==='Yes'&&m.dateMeeting&&m.dateMeeting.slice(0,7)===mo.key).length);
+  const W=520,H=170,pL=28,pR=8,pT=10,pB=28;
+  const cW=W-pL-pR,cH=H-pT-pB;
+  const maxV=Math.max(...booked,...happened,1);
+  const gW=cW/6, bW=Math.min(18,(gW-10)/2);
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">`;
+  for(let i=0;i<=4;i++){
+    const y=pT+(cH*i/4);
+    s+=`<line x1="${pL}" y1="${y.toFixed(1)}" x2="${W-pR}" y2="${y.toFixed(1)}" stroke="var(--bdr)" stroke-width="1"/>`;
+    s+=`<text x="${(pL-4).toFixed(1)}" y="${(y+3.5).toFixed(1)}" font-size="9" fill="var(--t3)" text-anchor="end" font-family="system-ui">${Math.round(maxV*(4-i)/4)}</text>`;
+  }
+  for(let i=0;i<6;i++){
+    const x0=pL+gW*i+(gW-(bW*2+4))/2;
+    const bH1=cH*booked[i]/maxV;
+    s+=`<rect x="${x0.toFixed(1)}" y="${(pT+cH-bH1).toFixed(1)}" width="${bW}" height="${Math.max(bH1,.5).toFixed(1)}" rx="3" fill="var(--acc)" opacity=".85"/>`;
+    const bH2=cH*happened[i]/maxV;
+    s+=`<rect x="${(x0+bW+4).toFixed(1)}" y="${(pT+cH-bH2).toFixed(1)}" width="${bW}" height="${Math.max(bH2,.5).toFixed(1)}" rx="3" fill="#22c55e" opacity=".85"/>`;
+    s+=`<text x="${(pL+gW*i+gW/2).toFixed(1)}" y="${H-6}" font-size="10" fill="var(--t3)" text-anchor="middle" font-family="system-ui">${months[i].label}</text>`;
+  }
+  s+='</svg>';
+  document.getElementById('chartWrap').innerHTML=s;
+}
+
+// ── MEETINGS ──────────────────────────────────────────────────────────────────
+function renderMStats(){
+  const t=meetings.length,
+        h=meetings.filter(m=>m.happened==='Yes').length,
+        ns=meetings.filter(m=>m.happened==='No Show').length,
+        // Accepted = accepted but not yet happened and not a no-show
+        a=meetings.filter(m=>m.accepted==='Yes'&&m.happened!=='Yes'&&m.happened!=='No Show').length,
+        hot=meetings.filter(m=>(m.likelihood==='Hot'||m.likelihood==='High')&&m.happened!=='Yes').length,
+        locs=meetings.reduce((s,m)=>s+parseInt(m.locations||0),0);
+  document.getElementById('mStats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-val ca">${t}</div></div>
+    <div class="stat-card"><div class="stat-label">Accepted (Pending)</div><div class="stat-val cg">${a}</div><div class="stat-sub">not yet happened</div></div>
+    <div class="stat-card"><div class="stat-label">Happened</div><div class="stat-val">${h}</div></div>
+    <div class="stat-card"><div class="stat-label">No Shows</div><div class="stat-val cr">${ns}</div></div>
+    <div class="stat-card"><div class="stat-label">Hot / High Pipeline</div><div class="stat-val cam">${hot}</div><div class="stat-sub">pending only</div></div>
+    <div class="stat-card"><div class="stat-label">Total Locations</div><div class="stat-val ca">${locs}</div><div class="stat-sub">across all meetings</div></div>`;
+}
+
+function renderMeetings(){
+  const q=document.getElementById('mSearch').value.toLowerCase();
+  const fA=document.getElementById('fAcc').value, fH=document.getElementById('fHap').value,
+        fL=document.getElementById('fLike').value;
+  let d=meetings.filter(m=>{
+    if(q&&!`${m.company} ${m.contact} ${m.dba} ${m.title} ${m.email}`.toLowerCase().includes(q)) return false;
+    if(fA&&m.accepted!==fA) return false;
+    if(fH&&m.happened!==fH) return false;
+    if(fL&&m.likelihood!==fL) return false;
+    return true;
+  });
+  d.sort((a,b)=>{
+    let av=a[mSK]??'',bv=b[mSK]??'';
+    if(mSK==='likelihood'){av=likeOrd(av);bv=likeOrd(bv);}
+    if(mSK==='locations'){av=parseInt(av)||0;bv=parseInt(bv)||0;}
+    return av<bv?-mSD:av>bv?mSD:0;
+  });
+  const tb=document.getElementById('mBody'), em=document.getElementById('mEmpty');
+  if(!d.length){tb.innerHTML='';em.style.display='block';return;}
+  em.style.display='none';
+  tb.innerHTML=d.map(m=>`<tr class="meeting-row${m.happened==='Yes'?' row-happened':''}" onclick="openMeetingModal('${m.id}')" title="Click to edit">
+    <td><span class="tp">${esc(m.company)}</span></td>
+    <td class="tm">${esc(m.contact)}</td>
+    <td class="tsmall">${esc(m.title||'—')}</td>
+    <td><div class="tsmall">${esc(m.phone||'—')}</div>${m.email?`<div class="ts" style="color:var(--acc);font-size:11px">${esc(m.email)}</div>`:''}</td>
+    <td class="tsmall">${esc(m.dba||'—')}</td>
+    <td class="tsmall" style="text-align:center">${m.locations||'—'}</td>
+    <td class="tsmall">${fmtD(m.dateBooked)}</td>
+    <td class="tsmall">${fmtD(m.dateMeeting)}</td>
+    <td>${ynB(m.accepted)}</td>
+    <td>${hapB(m.happened)}</td>
+    <td>${likeB(m.likelihood)}</td>
+  </tr>`).join('');
+}
+
+function mQuickSet(val, btn){
+  document.getElementById('fHap').value=val;
+  document.querySelectorAll('#mQuickFilter .cal-view-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMeetings();
+}
+
+function exportMeetingsCSV(){
+  const headers=['Company','DBA','Contact','Title','Phone','Email','Locations','Date Booked','Meeting Date','Meeting Time','Accepted','Outcome','Likelihood','Notes'];
+  const rows=meetings.map(m=>[
+    m.company||'',m.dba||'',m.contact||'',m.title||'',m.phone||'',m.email||'',
+    m.locations||'',m.dateBooked||'',m.dateMeeting||'',m.timeMeeting||'',
+    m.accepted||'',m.happened||'',m.likelihood||'',''
+  ]);
+  const esc=v=>{ const s=String(v||''); return s.includes(',')||s.includes('"')||s.includes('\n')?`"${s.replace(/"/g,'""')}"`:s; };
+  const csv=[headers.map(esc).join(','),...rows.map(r=>r.map(esc).join(','))].join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`meetings-${todayStr()}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Meetings exported ✓');
+}
+
+function mSort(k){
+  if(mSK===k) mSD*=-1; else{mSK=k;mSD=1;}
+  document.querySelectorAll('[id^="ms-"]').forEach(e=>e.textContent='↕');
+  const ic=document.getElementById('ms-'+k); if(ic) ic.textContent=mSD===1?'↑':'↓';
+  document.querySelectorAll('.t-meetings th').forEach(th=>th.classList.remove('sorted'));
+  event.currentTarget.classList.add('sorted');
+  renderMeetings();
+}
+
+function openMeetingModal(id=null, prefillDate=null, prefillTime=null){
+  editMId=id;
+  document.getElementById('mModalTitle').textContent=id?'Edit Meeting':'Add Meeting';
+  document.getElementById('mSaveBtn').textContent=id?'Save Changes':'Save Meeting';
+  document.getElementById('mDeleteBtn').style.display=id?'':'none';
+  if(id){
+    const m=meetings.find(x=>x.id===id);
+    if(m){
+      document.getElementById('f_co').value=m.company||'';
+      document.getElementById('f_ct').value=m.contact||'';
+      document.getElementById('f_ttl').value=m.title||'';
+      document.getElementById('f_ph').value=m.phone||'';
+      document.getElementById('f_em').value=m.email||'';
+      document.getElementById('f_dba').value=m.dba||'';
+      document.getElementById('f_loc').value=m.locations||'';
+      document.getElementById('f_db').value=m.dateBooked||'';
+      document.getElementById('f_dm').value=m.dateMeeting||'';
+      document.getElementById('f_tm').value=m.timeMeeting||'';
+      document.getElementById('f_ac').value=m.accepted||'Pending';
+      document.getElementById('f_hp').value=m.happened||'Pending';
+      document.getElementById('f_lk').value=m.likelihood||'Medium';
+    }
+  } else {
+    ['f_co','f_ct','f_ttl','f_ph','f_em','f_dba','f_loc'].forEach(f=>document.getElementById(f).value='');
+    document.getElementById('f_db').value=todayStr();
+    document.getElementById('f_dm').value=prefillDate||'';
+    document.getElementById('f_tm').value=prefillTime||'';
+    document.getElementById('f_ac').value='Pending';
+    document.getElementById('f_hp').value='Pending';
+    document.getElementById('f_lk').value='Medium';
+  }
+  openModal('mModal');
+  setTimeout(()=>document.getElementById('f_co').focus(),50);
+}
+
+function saveMeeting(e){
+  e.preventDefault();
+  const prev = editMId ? meetings.find(x=>x.id===editMId) : null;
+  const m={
+    id:editMId||uid(),
+    company:document.getElementById('f_co').value.trim(),
+    contact:document.getElementById('f_ct').value.trim(),
+    title:document.getElementById('f_ttl').value.trim(),
+    phone:document.getElementById('f_ph').value.trim(),
+    email:document.getElementById('f_em').value.trim(),
+    dba:document.getElementById('f_dba').value.trim(),
+    locations:document.getElementById('f_loc').value,
+    dateBooked:document.getElementById('f_db').value,
+    dateMeeting:document.getElementById('f_dm').value,
+    timeMeeting:document.getElementById('f_tm').value,
+    accepted:document.getElementById('f_ac').value,
+    happened:document.getElementById('f_hp').value,
+    likelihood:document.getElementById('f_lk').value,
+  };
+  const prevHappened = prev?.happened || null;
+  if(editMId){const i=meetings.findIndex(x=>x.id===editMId);if(i!==-1)meetings[i]=m;toast('Meeting updated ✓');}
+  else{meetings.push(m);toast('Meeting added ✓');}
+  if(m.happened==='Yes' && prevHappened!=='Yes' && !commissions.find(c=>c.meetingId===m.id)){
+    commissions.push({id:uid(),meetingId:m.id,company:m.company,contact:m.contact,commAmount:200,date:m.dateMeeting||todayStr(),paidOut:'No',dealValue:'',commRate:'',notes:'Auto-added from meeting'});
+    toast('Commission entry added ($200) ✓');
+  }
+  const convChanged=checkProspectConversions();
+  saveAll(); closeModal('mModal'); renderMStats(); renderMeetings();
+  if(convChanged){ renderProspects(); renderOverview(); }
+}
+
+function delMeeting(id){
+  if(!confirm('Delete this meeting?')) return;
+  meetings=meetings.filter(x=>x.id!==id);
+  saveAll(); toast('Meeting deleted'); renderMStats(); renderMeetings();
+}
+function delMeetingFromModal(){
+  if(!editMId) return;
+  if(!confirm('Delete this meeting?')) return;
+  meetings=meetings.filter(x=>x.id!==editMId);
+  saveAll(); closeModal('mModal'); toast('Meeting deleted'); renderMStats(); renderMeetings();
+}
+
+// ── GOALS ─────────────────────────────────────────────────────────────────────
+function renderGoals(){
+  document.getElementById('goalMonthLabel').innerHTML=`Goals — <span>${monthName()}</span>`;
+  const bk=meetings.filter(m=>inThisMonth(m.dateBooked)).length;
+  const hp=meetings.filter(m=>m.happened==='Yes'&&inThisMonth(m.dateMeeting)).length;
+  const cm=commissions.filter(c=>c.paidOut==='Yes'&&inThisMonth(c.date)).reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
+  const bdLeft=bizDaysLeft(), bdGone=bizDaysGone(), bdTotal=bizDaysInMonth();
+  function barC(p){return p>=1?'ca':p>=.7?'cg':p>=.4?'cam':'cr';}
+  function paceC(cur,goal){const p=goal>0?cur/goal:1;if(p>=1)return 'ex';const need=(goal-cur)/Math.max(bdLeft,1),pace=cur/Math.max(bdGone,1);return pace>=need?'ot':'bh';}
+  function paceText(cur,goal,isMoney=false){
+    const p=goal>0?cur/goal:1,left=Math.max(0,goal-cur),cls=paceC(cur,goal);
+    if(p>=1) return `<span class="${cls}"><strong>Goal exceeded! 🎉</strong></span>`;
+    if(bdLeft<=0) return `<span class="bh"><strong>Month ended.</strong> Reached ${isMoney?fmtM(cur):cur}.</span>`;
+    const pd=(left/bdLeft).toFixed(1);
+    return `<span class="${cls}">Need <strong>${isMoney?fmtM(left):left} more</strong> in ${bdLeft} biz day${bdLeft!==1?'s':''} <span style="opacity:.55">(${isMoney?fmtM(left/bdLeft):pd}/day)</span></span>`;
+  }
+  function gCard(lbl,icon,cur,goal,isMoney=false){
+    const p=Math.min(goal>0?cur/goal:0,1);
+    return `<div class="gcard">
+      <div class="gcard-header"><div class="gcard-label">${lbl}</div><div style="font-size:20px;opacity:.65">${icon}</div></div>
+      <div class="gnums"><div class="gcur">${isMoney?fmtM(cur):cur}</div><div class="gof">of</div><div class="gtgt">${isMoney?fmtM(goal):goal}</div></div>
+      <div class="gptrack"><div class="gpfill ${barC(p)}" style="width:${(Math.min(p,1)*100).toFixed(1)}%"></div></div>
+      <div class="gpace">${paceText(cur,goal,isMoney)} <span style="opacity:.4;margin-left:6px">${(p*100).toFixed(0)}%</span></div>
+    </div>`;
+  }
+  document.getElementById('goalsGrid').innerHTML=gCard('Meetings Booked','📅',bk,goals.bookings)+gCard('Meetings Happened','✅',hp,goals.happened)+gCard('Commission Earned','💵',cm,goals.commission,true);
+  const pace=bdGone>0?(bk/bdGone).toFixed(2):0, proj=Math.round(pace*bdTotal);
+  let msg;
+  if(bk>=goals.bookings) msg='You\'ve hit your booking goal this month. Every extra meeting is ahead of quota. 🚀';
+  else if(bdLeft<=0) msg=`Month over. You booked <strong>${bk}</strong> of <strong>${goals.bookings}</strong>.`;
+  else{const need=Math.ceil((goals.bookings-bk)/Math.max(bdLeft,1)*10)/10;
+    msg=proj>=goals.bookings?`On pace — tracking at <strong>${pace}/biz day</strong>, projected ~<strong>${proj} meetings</strong> (goal: ${goals.bookings}). Keep it up.`:`Pacing at <strong>${pace} bookings/biz day</strong>, projecting ~<strong>${proj}</strong> by month end (goal: ${goals.bookings}). Need <strong>${need}/biz day</strong> to hit quota.`;}
+  document.getElementById('insightCard').innerHTML=`<div style="font-size:22px;flex-shrink:0">💡</div><div class="insight-text">${msg}</div>`;
+}
+function openGoalsModal(){document.getElementById('g_bk').value=goals.bookings;document.getElementById('g_hp').value=goals.happened;document.getElementById('g_cm').value=goals.commission;openModal('gModal');}
+function saveGoals(e){e.preventDefault();goals.bookings=parseInt(document.getElementById('g_bk').value)||20;goals.happened=parseInt(document.getElementById('g_hp').value)||15;goals.commission=parseFloat(document.getElementById('g_cm').value)||5000;saveAll();closeModal('gModal');renderGoals();toast('Goals saved ✓');}
+
+// ── COMMISSION ────────────────────────────────────────────────────────────────
+function renderCommStats(){
+  const paid=commissions.filter(c=>c.paidOut==='Yes').reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
+  const pend=commissions.filter(c=>c.paidOut!=='Yes').reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
+  document.getElementById('cStats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Paid Out</div><div class="stat-val cg">${fmtM(paid)}</div><div class="stat-sub">${commissions.filter(c=>c.paidOut==='Yes').length} entries</div></div>
+    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-val cam">${fmtM(pend)}</div><div class="stat-sub">${commissions.filter(c=>c.paidOut!=='Yes').length} entries</div></div>
+    <div class="stat-card"><div class="stat-label">All-Time Total</div><div class="stat-val ca">${fmtM(paid+pend)}</div><div class="stat-sub">${commissions.length} total entries</div></div>`;
+}
+
+function renderComm(){
+  const q=document.getElementById('cSearch').value.toLowerCase();
+  const fp=document.getElementById('cFPaid').value;
+  let d=commissions.filter(c=>{
+    if(q&&!c.company.toLowerCase().includes(q)) return false;
+    if(fp&&c.paidOut!==fp) return false;
+    return true;
+  });
+  d.sort((a,b)=>{
+    let av=a[cSK]??'',bv=b[cSK]??'';
+    if(cSK==='commAmount'){av=parseFloat(av)||0;bv=parseFloat(bv)||0;}
+    return av<bv?-cSD:av>bv?cSD:0;
+  });
+  const tb=document.getElementById('cBody'), em=document.getElementById('cEmpty'), ft=document.getElementById('cFoot');
+  if(!d.length){tb.innerHTML='';ft.innerHTML='';em.style.display='block';return;}
+  em.style.display='none';
+  tb.innerHTML=d.map(c=>`<tr>
+    <td><div class="tp">${esc(c.company)}</div>${c.contact?`<div class="ts">${esc(c.contact)}</div>`:''}</td>
+    <td style="font-weight:700;color:#22c55e">${fmtM(c.commAmount)}</td>
+    <td class="tsmall">${fmtD(c.date)}</td>
+    <td>${paidB(c.paidOut)}</td>
+    <td class="tsmall">${c.dealValue?fmtM(c.dealValue):'—'}</td>
+    <td class="tsmall">${c.commRate?c.commRate+'%':'—'}</td>
+    <td class="tsmall" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.notes)}">${esc(c.notes||'—')}</td>
+    <td><div class="actions-cell">
+      <button class="btn btn-ghost btn-sm" onclick="openCommModal('${c.id}')">Edit</button>
+      <button class="btn btn-danger btn-sm" onclick="delComm('${c.id}')">Delete</button>
+    </div></td>
+  </tr>`).join('');
+  const totAmt=d.reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
+  const totDV=d.reduce((s,c)=>s+parseFloat(c.dealValue||0),0);
+  ft.innerHTML=`<tr><td style="color:var(--t3)">Total (${d.length})</td><td style="font-weight:800;color:#22c55e">${fmtM(totAmt)}</td><td colspan="2"></td><td style="font-weight:700">${totDV?fmtM(totDV):'—'}</td><td colspan="3"></td></tr>`;
+}
+
+function cSort(k){
+  if(cSK===k) cSD*=-1; else{cSK=k;cSD=1;}
+  document.querySelectorAll('[id^="cs-"]').forEach(e=>e.textContent='↕');
+  const ic=document.getElementById('cs-'+k); if(ic) ic.textContent=cSD===1?'↑':'↓';
+  renderComm();
+}
+
+function calcHint(){
+  const dv=parseFloat(document.getElementById('c_dv').value)||0;
+  const cr=parseFloat(document.getElementById('c_cr').value)||0;
+  document.getElementById('calcHint').innerHTML=(dv&&cr)?`Calculated: <span>${fmtM(dv*cr/100)}</span>`:'Fill in Deal Value + % above to see calculated amount';
+}
+
+function openCommModal(id=null){
+  editCId=id;
+  document.getElementById('cModalTitle').textContent=id?'Edit Entry':'Add Commission Entry';
+  document.getElementById('cSaveBtn').textContent=id?'Save Changes':'Save Entry';
+  if(id){
+    const c=commissions.find(x=>x.id===id);
+    if(c){document.getElementById('c_co').value=c.company||'';document.getElementById('c_ct').value=c.contact||'';document.getElementById('c_amt').value=c.commAmount||'';document.getElementById('c_date').value=c.date||'';document.getElementById('c_paid').value=c.paidOut||'No';document.getElementById('c_dv').value=c.dealValue||'';document.getElementById('c_cr').value=c.commRate||'';document.getElementById('c_notes').value=c.notes||'';calcHint();}
+  } else {
+    ['c_co','c_ct','c_amt','c_dv','c_cr','c_notes'].forEach(f=>document.getElementById(f).value='');
+    document.getElementById('c_date').value=todayStr();
+    document.getElementById('c_paid').value='No';
+    document.getElementById('calcHint').innerHTML='Fill in Deal Value + % above to see calculated amount';
+  }
+  openModal('cModal');
+  setTimeout(()=>document.getElementById('c_co').focus(),50);
+}
+
+function saveComm(e){
+  e.preventDefault();
+  const c={id:editCId||uid(),company:document.getElementById('c_co').value.trim(),contact:document.getElementById('c_ct').value.trim(),commAmount:parseFloat(document.getElementById('c_amt').value)||0,date:document.getElementById('c_date').value,paidOut:document.getElementById('c_paid').value,dealValue:document.getElementById('c_dv').value||'',commRate:document.getElementById('c_cr').value||'',notes:document.getElementById('c_notes').value.trim()};
+  if(editCId){const i=commissions.findIndex(x=>x.id===editCId);if(i!==-1)commissions[i]=c;toast('Entry updated ✓');}
+  else{commissions.push(c);toast('Commission entry added ✓');}
+  saveAll();closeModal('cModal');renderCommStats();renderComm();
+}
+
+function delComm(id){
+  if(!confirm('Delete this entry?')) return;
+  commissions=commissions.filter(c=>c.id!==id);
+  saveAll();toast('Entry deleted');renderCommStats();renderComm();
+}
+
+// ── STATISTICS ────────────────────────────────────────────────────────────────
+function statsInRange(dateStr){
+  if(!dateStr) return (!statsRangeStart && !statsRangeEnd);
+  if(statsRangeStart && dateStr < statsRangeStart) return false;
+  if(statsRangeEnd   && dateStr > statsRangeEnd)   return false;
+  return true;
+}
+
+function renderProspectConversionSection(){
+  if(!prospects.length) return '';
+  const total=prospects.length;
+  const converted=prospects.filter(p=>p.converted);
+  const notConv=prospects.filter(p=>!p.converted);
+  const convCount=converted.length;
+  const convRate=total>0?(convCount/total*100).toFixed(1):0;
+
+  // Avg touches to convert
+  const avgTouchConv=convCount>0
+    ? (converted.reduce((s,p)=>s+(p.calls||0)+(p.emails||0)+(p.linkedins||0),0)/convCount).toFixed(1)
+    : null;
+
+  // Conversion by temperature
+  const temps=['Hot','Warm','Cold'];
+  const tempConv=temps.map(t=>{
+    const grp=prospects.filter(p=>p.status===t);
+    const c=grp.filter(p=>p.converted).length;
+    return {t,total:grp.length,conv:c,rate:grp.length>0?(c/grp.length*100).toFixed(0):0};
+  }).filter(x=>x.total>0);
+
+  const kpis=[
+    {label:'Total Prospects',val:total,cls:'ca',sub:'in pipeline'},
+    {label:'Converted to Meetings',val:convCount,cls:'cg',sub:'matched to a booking'},
+    {label:'Conversion Rate',val:convRate+'%',cls:parseFloat(convRate)>=20?'cg':parseFloat(convRate)>=10?'cam':'cr',sub:'prospects booked'},
+    {label:'Not Yet Converted',val:notConv.length,cls:'',sub:'still in pipeline'},
+    {label:'Avg Touches to Convert',val:avgTouchConv?avgTouchConv:'—',cls:'',sub:avgTouchConv?'calls + emails + LinkedIn':'no data yet'},
+  ];
+
+  const convRows=converted.slice().sort((a,b)=>(b.convertedDate||'')>(a.convertedDate||'')?1:-1).slice(0,8).map(p=>`
+    <tr>
+      <td><span style="font-weight:600">${esc(p.company)}</span>${p.dba?`<span style="color:var(--t3);font-size:11px"> · ${esc(p.dba)}</span>`:''}</td>
+      <td class="tsmall">${esc(p.contact||'—')}</td>
+      <td>${tempB(p.status)}</td>
+      <td style="text-align:center">${(p.calls||0)+(p.emails||0)+(p.linkedins||0)}</td>
+      <td class="tsmall" style="color:#16a34a;font-weight:600">${p.convertedDate?fmtD(p.convertedDate):'—'}</td>
+    </tr>`).join('');
+
+  return `<div class="dcard" style="margin-bottom:0">
+    <div class="dcard-title" style="margin-bottom:16px">Prospect → Meeting Conversion</div>
+    <div class="conv-kpi-grid">${kpis.map(k=>`
+      <div class="kpi-card">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-val ${k.cls}">${k.val}</div>
+        <div class="kpi-sub">${k.sub}</div>
+      </div>`).join('')}
+    </div>
+    ${tempConv.length?`
+    <div style="margin-bottom:18px">
+      <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Conversion by Temperature</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${tempConv.map(x=>`<div style="display:flex;align-items:center;gap:10px">
+          ${tempB(x.t)}
+          <div class="conv-bar-wrap" style="flex:1">
+            <div class="conv-bar-bg"><div class="conv-bar-fill" style="width:${x.rate}%;background:${x.t==='Hot'?'#ef4444':x.t==='Warm'?'#f59e0b':'#94a3b8'}"></div></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;min-width:58px;text-align:right">${x.conv}/${x.total} (${x.rate}%)</span>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+    ${convRows?`
+    <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Recently Converted</div>
+    <div class="twrap">
+    <table class="conv-table">
+      <thead><tr><th>Company</th><th>Contact</th><th>Status</th><th style="text-align:center">Touches</th><th>Converted</th></tr></thead>
+      <tbody>${convRows}</tbody>
+    </table></div>`:'<div style="color:var(--t3);font-size:13px;padding:8px 0">No prospects have been converted yet. Add prospects and meetings with matching company or contact names.</div>'}
+  </div>`;
+}
+
+function renderStatistics(){
+  // Filter meetings/commissions by selected range (using dateBooked as anchor)
+  const ms = statsRangeStart||statsRangeEnd
+    ? meetings.filter(m=>statsInRange(m.dateBooked||m.dateMeeting))
+    : meetings;
+  const cs = statsRangeStart||statsRangeEnd
+    ? commissions.filter(c=>statsInRange(c.date))
+    : commissions;
+
+  const total = ms.length;
+  if(!total){
+    document.getElementById('statsContent').innerHTML=`<div class="empty"><div class="empty-icon">📊</div><h3>No data for this range</h3><p>Try a wider date range or switch to All Time.</p></div>`;
+    return;
+  }
+
+  // Core counts
+  const happened   = ms.filter(m=>m.happened==='Yes').length;
+  const noShow     = ms.filter(m=>m.happened==='No Show').length;
+  const rescheduled= ms.filter(m=>m.happened==='Rescheduled').length;
+  const cancelled  = ms.filter(m=>m.happened==='No').length;
+  const pending    = ms.filter(m=>m.happened==='Pending').length;
+  const accepted        = ms.filter(m=>m.accepted==='Yes').length;
+  const accShowed       = ms.filter(m=>m.accepted==='Yes'&&m.happened==='Yes').length;
+  const accNoShow       = ms.filter(m=>m.accepted==='Yes'&&m.happened==='No Show').length;
+  const accDenom        = accShowed + accNoShow;
+  const accShowRate     = accDenom > 0 ? (accShowed/accDenom*100).toFixed(1) : null;
+  const accNoShowRate   = accDenom > 0 ? (accNoShow/accDenom*100).toFixed(1) : null;
+
+  const showDenom  = happened + noShow;
+  const showRate   = showDenom > 0 ? (happened/showDenom*100).toFixed(1) : null;
+  const accRate    = total > 0 ? (accepted/total*100).toFixed(1) : null;
+
+  let bookedPeriod, elapsedDays, mpdSub;
+  if(statsRangeStart||statsRangeEnd){
+    const s=statsRangeStart||ms.filter(m=>m.dateBooked).sort((a,b)=>a.dateBooked<b.dateBooked?-1:1)[0]?.dateBooked||todayStr();
+    const e=statsRangeEnd||todayStr();
+    bookedPeriod=ms.filter(m=>m.dateBooked&&m.dateBooked>=s&&m.dateBooked<=e).length;
+    elapsedDays=bizDays(s,e);
+    const sLabel=new Date(s+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const eLabel=new Date(e+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    mpdSub=`${sLabel} – ${eLabel} (${elapsedDays} biz days)`;
+  } else {
+    bookedPeriod=ms.filter(m=>inThisMonth(m.dateBooked)).length;
+    const moStart=todayStr().slice(0,7)+'-01';
+    elapsedDays=bizDays(moStart,todayStr());
+    mpdSub=`this month (${bookedPeriod} in ${elapsedDays} biz days)`;
+  }
+  const mpd = elapsedDays > 0 ? (bookedPeriod/elapsedDays).toFixed(2) : '0.00';
+
+  let paceMpd = '—';
+  const datedMs = ms.filter(m=>m.dateBooked).sort((a,b)=>a.dateBooked<b.dateBooked?-1:1);
+  if(datedMs.length >= 2){
+    const first = new Date(datedMs[0].dateBooked+'T00:00:00');
+    const last  = statsRangeEnd ? new Date(statsRangeEnd+'T00:00:00') : new Date(todayStr()+'T00:00:00');
+    const daysDiff = bizDays(datedMs[0].dateBooked, statsRangeEnd||todayStr());
+    paceMpd = (datedMs.length/daysDiff).toFixed(2);
+  }
+
+  const withBoth = ms.filter(m=>m.dateBooked&&m.dateMeeting);
+  let avgLead = '—';
+  if(withBoth.length){
+    const totalDays = withBoth.reduce((s,m)=>{
+      return s+Math.round((new Date(m.dateMeeting+'T00:00:00')-new Date(m.dateBooked+'T00:00:00'))/86400000);
+    },0);
+    avgLead = (totalDays/withBoth.length).toFixed(1)+' days';
+  }
+
+  const totalComm = cs.reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
+  const commPerMeeting = happened > 0 ? fmtM(totalComm/happened) : '—';
+  const reschedRate = total > 0 ? (rescheduled/total*100).toFixed(1) : '0.0';
+  const noShowRate  = showDenom > 0 ? (noShow/showDenom*100).toFixed(1) : null;
+  const paceLabel   = (statsRangeStart||statsRangeEnd) ? 'Range Pace' : 'All-Time Pace';
+
+  const kpis = [
+    { label:'Show Rate',         val: showRate ? showRate+'%' : '—',   cls:'cg',  sub: showDenom ? `${happened}/${showDenom} meetings` : 'No concluded meetings yet' },
+    { label:'Acceptance Rate',        val: accRate+'%',                           cls:'ca',  sub: `${accepted} of ${total} meetings` },
+    { label:'No Show Rate',           val: noShowRate ? noShowRate+'%' : '—',     cls:'cr',  sub: noShow ? `${noShow} no-show${noShow!==1?'s':''}` : 'No no-shows recorded' },
+    { label:'Accepted → Showed',      val: accShowRate ? accShowRate+'%' : '—',   cls:'cg',  sub: accDenom ? `${accShowed} of ${accDenom} accepted` : 'No concluded accepted yet' },
+    { label:'Accepted → No Show',     val: accNoShowRate ? accNoShowRate+'%' : '—',cls:'cr', sub: accDenom ? `${accNoShow} of ${accDenom} accepted` : 'No concluded accepted yet' },
+    { label:'Bookings / Day',    val: mpd,                              cls:'cam', sub: mpdSub },
+    { label:paceLabel,           val: paceMpd==='—'?'—':paceMpd,       cls:'',    sub: paceMpd==='—'?'Need 2+ meetings':'bookings per day' },
+    { label:'Avg Lead Time',     val: avgLead,                          cls:'',    sub: 'from booked → meeting date' },
+    { label:'Commission / Meet.',val: commPerMeeting,                   cls:'cg',  sub: 'per happened meeting' },
+    { label:'Reschedule Rate',   val: reschedRate+'%',                  cls:'',    sub: rescheduled+' rescheduled' },
+  ];
+
+  const outcomes = [
+    { label:'Happened',    count:happened,    color:'#22c55e' },
+    { label:'No Show',     count:noShow,      color:'#ef4444' },
+    { label:'Rescheduled', count:rescheduled, color:'#8b5cf6' },
+    { label:'Cancelled',   count:cancelled,   color:'#94a3b8' },
+    { label:'Upcoming',    count:pending,     color:'var(--acc)' },
+  ];
+  const maxOutcome = Math.max(...outcomes.map(o=>o.count), 1);
+
+  const tiers = ['Hot','High','Medium','Low'];
+  const likeStats = tiers.map(tier=>{
+    const tm  = ms.filter(m=>m.likelihood===tier);
+    const cnt = tm.length;
+    const hap = tm.filter(m=>m.happened==='Yes').length;
+    const ns  = tm.filter(m=>m.happened==='No Show').length;
+    const acc = tm.filter(m=>m.accepted==='Yes').length;
+    const denom = hap+ns;
+    return { tier, cnt, hap, ns, acc, sr:denom>0?(hap/denom*100).toFixed(0)+'%':'—', ar:cnt>0?(acc/cnt*100).toFixed(0)+'%':'—', denom };
+  });
+
+  // ── Render ──
+  document.getElementById('statsContent').innerHTML = `
+    <div class="kpi-grid">${kpis.map(k=>`
+      <div class="kpi-card">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-val ${k.cls}">${k.val}</div>
+        <div class="kpi-sub">${k.sub}</div>
+      </div>`).join('')}
+    </div>
+
+    <div class="stats-2col">
+      <div class="dcard">
+        <div class="dcard-title">Outcome Breakdown</div>
+        ${outcomes.map(o=>`
+          <div class="outcome-row">
+            <div class="outcome-label">${o.label}</div>
+            <div class="outcome-bar-wrap"><div class="outcome-bar" style="width:${(o.count/maxOutcome*100).toFixed(1)}%;background:${o.color}"></div></div>
+            <div class="outcome-count">${o.count} <span style="opacity:.5">(${total>0?(o.count/total*100).toFixed(0):0}%)</span></div>
+          </div>`).join('')}
+      </div>
+
+      <div class="dcard">
+        <div class="dcard-title">Performance by Likelihood</div>
+        <table class="like-table">
+          <thead><tr>
+            <th>Tier</th><th>Count</th><th>Happened</th><th>No Show</th>
+            <th>Show Rate</th><th>Acc. Rate</th>
+          </tr></thead>
+          <tbody>${likeStats.map(r=>`<tr>
+            <td>${likeB(r.tier)}</td>
+            <td style="font-weight:600">${r.cnt}</td>
+            <td style="color:#22c55e;font-weight:600">${r.hap}</td>
+            <td style="color:#ef4444">${r.ns}</td>
+            <td>
+              <div class="rate-bar-wrap">
+                <span style="font-weight:700;min-width:34px;font-size:13px">${r.sr}</span>
+                <div class="rate-bar-bg"><div class="rate-bar-fill" style="width:${r.denom>0?(r.hap/r.denom*100).toFixed(0):0}%;background:${r.denom>0&&(r.hap/r.denom)>=.7?'#22c55e':r.denom>0&&(r.hap/r.denom)>=.4?'#f59e0b':'#ef4444'}"></div></div>
+              </div>
+            </td>
+            <td style="font-weight:600">${r.ar}</td>
+          </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    ${renderProspectConversionSection()}
+
+    <div class="dcard" style="margin-bottom:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div class="dcard-title" style="margin-bottom:0" id="perfTitle">Performance — Last 6 Months</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="perf-controls">
+            <button class="perf-btn${perfMode==='month'?' active':''}" onclick="setPerfMode('month')">Month</button>
+            <button class="perf-btn${perfMode==='week'?' active':''}" onclick="setPerfMode('week')">Week</button>
+            <button class="perf-btn${perfMode==='custom'?' active':''}" onclick="setPerfMode('custom')">Custom</button>
+          </div>
+          <div class="perf-custom-range" id="perfCustomRange" style="display:${perfMode==='custom'?'flex':'none'}">
+            <input type="date" id="perfStart" value="${perfCustomStart}" onchange="perfCustomStart=this.value">
+            <span>to</span>
+            <input type="date" id="perfEnd" value="${perfCustomEnd}" onchange="perfCustomEnd=this.value">
+            <button class="btn btn-primary btn-sm" onclick="renderPerfTable()">Apply</button>
+          </div>
+        </div>
+      </div>
+      <div class="twrap" id="perfTableWrap"></div>
+    </div>`;
+  renderPerfTable();
+}
+
+function setPerfMode(mode){
+  perfMode=mode;
+  document.querySelectorAll('.perf-btn').forEach(b=>b.classList.remove('active'));
+  const idx={month:0,week:1,custom:2}[mode];
+  document.querySelectorAll('.perf-btn')[idx]?.classList.add('active');
+  const cr=document.getElementById('perfCustomRange');
+  if(cr) cr.style.display=mode==='custom'?'flex':'none';
+  const titles={month:'Performance — Last 6 Months',week:'Performance — Last 8 Weeks',custom:'Performance — Custom Range'};
+  const pt=document.getElementById('perfTitle'); if(pt) pt.textContent=titles[mode];
+  renderPerfTable();
+}
+
+function renderPerfTable(){
+  const wrap=document.getElementById('perfTableWrap');
+  if(!wrap) return;
+  const ms = statsRangeStart||statsRangeEnd ? meetings.filter(m=>statsInRange(m.dateBooked||m.dateMeeting)) : meetings;
+  const cs = statsRangeStart||statsRangeEnd ? commissions.filter(c=>statsInRange(c.date)) : commissions;
+
+  if(perfMode==='month'){
+    const now=new Date(); const months=[];
+    for(let i=5;i>=0;i--){
+      const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+      months.push({key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:d.toLocaleDateString('en-US',{month:'short',year:'2-digit'})});
+    }
+    const rows=months.map(mo=>{
+      const bk=ms.filter(m=>m.dateBooked&&m.dateBooked.slice(0,7)===mo.key).length;
+      const hp=ms.filter(m=>m.happened==='Yes'&&m.dateMeeting&&m.dateMeeting.slice(0,7)===mo.key).length;
+      const ns=ms.filter(m=>m.happened==='No Show'&&m.dateMeeting&&m.dateMeeting.slice(0,7)===mo.key).length;
+      const rs=ms.filter(m=>m.happened==='Rescheduled'&&m.dateMeeting&&m.dateMeeting.slice(0,7)===mo.key).length;
+      const dn=hp+ns; const sr=dn>0?(hp/dn*100).toFixed(0)+'%':'—';
+      const cm=cs.filter(c=>c.paidOut==='Yes'&&c.date&&c.date.slice(0,7)===mo.key).reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
+      return {label:mo.label,bk,hp,ns,rs,sr,cm};
+    });
+    const tBk=rows.reduce((s,r)=>s+r.bk,0),tHp=rows.reduce((s,r)=>s+r.hp,0),
+          tNs=rows.reduce((s,r)=>s+r.ns,0),tRs=rows.reduce((s,r)=>s+r.rs,0),
+          tCm=rows.reduce((s,r)=>s+r.cm,0),tDn=tHp+tNs,tSr=tDn>0?(tHp/tDn*100).toFixed(0)+'%':'—';
+    wrap.innerHTML=`<table class="month-table"><thead><tr><th>Month</th><th>Booked</th><th>Happened</th><th>No Show</th><th>Rescheduled</th><th>Show Rate</th><th>Commission</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td style="font-weight:600">${r.label}</td><td>${r.bk||'—'}</td><td style="color:#22c55e;font-weight:600">${r.hp||'—'}</td><td style="color:#ef4444">${r.ns||'—'}</td><td style="color:#8b5cf6">${r.rs||'—'}</td><td style="font-weight:700">${r.sr}</td><td style="color:#22c55e;font-weight:600">${r.cm?fmtM(r.cm):'—'}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>6-Mo Total</td><td>${tBk}</td><td style="color:#22c55e">${tHp}</td><td style="color:#ef4444">${tNs||'—'}</td><td style="color:#8b5cf6">${tRs||'—'}</td><td>${tSr}</td><td style="color:#22c55e">${tCm?fmtM(tCm):'—'}</td></tr></tfoot>
+    </table>`;
+
+  } else if(perfMode==='week'){
+    const now=new Date(); const weeks=[];
+    for(let i=7;i>=0;i--){
+      const end=new Date(now); end.setDate(now.getDate()-i*7);
+      const start=new Date(end); start.setDate(end.getDate()-6);
+      const s=start.toISOString().slice(0,10), e=end.toISOString().slice(0,10);
+      weeks.push({s,e,label:`${start.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${end.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`});
+    }
+    const rows=weeks.map(w=>{
+      const bk=ms.filter(m=>m.dateBooked&&m.dateBooked>=w.s&&m.dateBooked<=w.e).length;
+      const hp=ms.filter(m=>m.happened==='Yes'&&m.dateMeeting&&m.dateMeeting>=w.s&&m.dateMeeting<=w.e).length;
+      const ns=ms.filter(m=>m.happened==='No Show'&&m.dateMeeting&&m.dateMeeting>=w.s&&m.dateMeeting<=w.e).length;
+      const rs=ms.filter(m=>m.happened==='Rescheduled'&&m.dateMeeting&&m.dateMeeting>=w.s&&m.dateMeeting<=w.e).length;
+      const dn=hp+ns; const sr=dn>0?(hp/dn*100).toFixed(0)+'%':'—';
+      const cm=cs.filter(c=>c.paidOut==='Yes'&&c.date&&c.date>=w.s&&c.date<=w.e).reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
+      return {label:w.label,bk,hp,ns,rs,sr,cm};
+    });
+    const tBk=rows.reduce((s,r)=>s+r.bk,0),tHp=rows.reduce((s,r)=>s+r.hp,0),
+          tNs=rows.reduce((s,r)=>s+r.ns,0),tRs=rows.reduce((s,r)=>s+r.rs,0),
+          tCm=rows.reduce((s,r)=>s+r.cm,0),tDn=tHp+tNs,tSr=tDn>0?(tHp/tDn*100).toFixed(0)+'%':'—';
+    wrap.innerHTML=`<table class="month-table"><thead><tr><th>Week</th><th>Booked</th><th>Happened</th><th>No Show</th><th>Rescheduled</th><th>Show Rate</th><th>Commission</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td style="font-weight:600;font-size:12px">${r.label}</td><td>${r.bk||'—'}</td><td style="color:#22c55e;font-weight:600">${r.hp||'—'}</td><td style="color:#ef4444">${r.ns||'—'}</td><td style="color:#8b5cf6">${r.rs||'—'}</td><td style="font-weight:700">${r.sr}</td><td style="color:#22c55e;font-weight:600">${r.cm?fmtM(r.cm):'—'}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>8-Wk Total</td><td>${tBk}</td><td style="color:#22c55e">${tHp}</td><td style="color:#ef4444">${tNs||'—'}</td><td style="color:#8b5cf6">${tRs||'—'}</td><td>${tSr}</td><td style="color:#22c55e">${tCm?fmtM(tCm):'—'}</td></tr></tfoot>
+    </table>`;
+
+  } else {
+    const s=perfCustomStart, e=perfCustomEnd;
+    if(!s||!e){ wrap.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13.5px">Select a start and end date, then click Apply.</div>`; return; }
+    if(s>e){ wrap.innerHTML=`<div style="padding:24px;text-align:center;color:#ef4444;font-size:13.5px">Start date must be before end date.</div>`; return; }
+    const bk=ms.filter(m=>m.dateBooked&&m.dateBooked>=s&&m.dateBooked<=e).length;
+    const hp=ms.filter(m=>m.happened==='Yes'&&m.dateMeeting&&m.dateMeeting>=s&&m.dateMeeting<=e).length;
+    const ns=ms.filter(m=>m.happened==='No Show'&&m.dateMeeting&&m.dateMeeting>=s&&m.dateMeeting<=e).length;
+    const rs=ms.filter(m=>m.happened==='Rescheduled'&&m.dateMeeting&&m.dateMeeting>=s&&m.dateMeeting<=e).length;
+    const ca=ms.filter(m=>m.happened==='No'&&m.dateMeeting&&m.dateMeeting>=s&&m.dateMeeting<=e).length;
+    const dn=hp+ns; const sr=dn>0?(hp/dn*100).toFixed(0)+'%':'—';
+    const cm=cs.filter(c=>c.paidOut==='Yes'&&c.date&&c.date>=s&&c.date<=e).reduce((x,c)=>x+parseFloat(c.commAmount||0),0);
+    const sLabel=new Date(s+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const eLabel=new Date(e+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    wrap.innerHTML=`<table class="month-table"><thead><tr><th>Range</th><th>Booked</th><th>Happened</th><th>No Show</th><th>Rescheduled</th><th>Cancelled</th><th>Show Rate</th><th>Commission</th></tr></thead>
+      <tbody><tr>
+        <td style="font-weight:600;font-size:12px">${sLabel} – ${eLabel}</td>
+        <td>${bk||'—'}</td><td style="color:#22c55e;font-weight:600">${hp||'—'}</td>
+        <td style="color:#ef4444">${ns||'—'}</td><td style="color:#8b5cf6">${rs||'—'}</td>
+        <td style="color:#94a3b8">${ca||'—'}</td><td style="font-weight:700">${sr}</td>
+        <td style="color:#22c55e;font-weight:600">${cm?fmtM(cm):'—'}</td>
+      </tr></tbody>
+    </table>`;
+  }
+}
+
+// ── Statistics date range ─────────────────────────────────────────────────────
+function setStatsRange(preset){
+  statsRangePreset=preset;
+  const today=todayStr();
+  if(preset==='all')       { statsRangeStart=''; statsRangeEnd=''; }
+  else if(preset==='thisMonth'){ statsRangeStart=today.slice(0,7)+'-01'; statsRangeEnd=today; }
+  else if(preset==='30d')  { const d=new Date(); d.setDate(d.getDate()-30); statsRangeStart=d.toISOString().slice(0,10); statsRangeEnd=today; }
+  else if(preset==='90d')  { const d=new Date(); d.setDate(d.getDate()-90); statsRangeStart=d.toISOString().slice(0,10); statsRangeEnd=today; }
+  else if(preset==='ytd')  { statsRangeStart=today.slice(0,4)+'-01-01'; statsRangeEnd=today; }
+  else if(preset==='custom'){ document.getElementById('statsCustomRange').style.display='flex'; updateStatsBtns(); return; }
+  document.getElementById('statsCustomRange').style.display='none';
+  updateStatsBtns(); updateStatsRangeLabel(); renderCurrentStatsSub();
+}
+function applyStatsRange(){
+  statsRangeStart=document.getElementById('statsStart').value;
+  statsRangeEnd=document.getElementById('statsEnd').value;
+  updateStatsRangeLabel(); renderCurrentStatsSub();
+}
+function updateStatsBtns(){
+  const order=['all','thisMonth','30d','90d','ytd','custom'];
+  document.querySelectorAll('.date-preset-btn').forEach((b,i)=>b.classList.toggle('active',order[i]===statsRangePreset));
+}
+function updateStatsRangeLabel(){
+  const el=document.getElementById('statsRangeLabel'); if(!el) return;
+  if(!statsRangeStart&&!statsRangeEnd){ el.textContent='Showing: All Time'; return; }
+  const fmt=d=>new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  el.textContent=`Showing: ${statsRangeStart?fmt(statsRangeStart):'start'} – ${statsRangeEnd?fmt(statsRangeEnd):'today'}`;
+}
+function renderCurrentStatsSub(){
+  const acct=document.getElementById('statsAccountContent');
+  if(acct&&acct.style.display!=='none') renderStatsByAccount();
+  else renderStatistics();
+}
+
+// ── Statistics sub-tabs ───────────────────────────────────────────────────────
+function switchStatsSub(tab){
+  document.getElementById('statsContent').style.display        = tab==='overview' ? '' : 'none';
+  document.getElementById('statsAccountContent').style.display = tab==='account'  ? '' : 'none';
+  document.getElementById('ssb-overview').classList.toggle('active', tab==='overview');
+  document.getElementById('ssb-account').classList.toggle('active',  tab==='account');
+  if(tab==='account') renderStatsByAccount(); else renderStatistics();
+}
+
+function renderStatsByAccount(){
+  const el = document.getElementById('statsAccountContent');
+  const ms = statsRangeStart||statsRangeEnd ? meetings.filter(m=>statsInRange(m.dateBooked||m.dateMeeting)) : meetings;
+  const cs = statsRangeStart||statsRangeEnd ? commissions.filter(c=>statsInRange(c.date)) : commissions;
+  if(!ms.length){ el.innerHTML=`<div class="empty"><div class="empty-icon">🏢</div><h3>No data for this range</h3><p>Try a wider date range or switch to All Time.</p></div>`; return; }
+
+  // Build per-company map
+  const map={};
+  ms.forEach(m=>{
+    const co = m.company||'(Unknown)';
+    if(!map[co]) map[co]={ company:co, booked:0, happened:0, noShow:0, rescheduled:0, cancelled:0, pending:0, accepted:0, locations:0, commission:0 };
+    map[co].booked++;
+    if(m.happened==='Yes')           map[co].happened++;
+    else if(m.happened==='No Show')  map[co].noShow++;
+    else if(m.happened==='Rescheduled') map[co].rescheduled++;
+    else if(m.happened==='No')       map[co].cancelled++;
+    else                             map[co].pending++;
+    if(m.accepted==='Yes')           map[co].accepted++;
+    map[co].locations += parseInt(m.locations||0);
+  });
+  cs.forEach(c=>{
+    const co = c.company||'(Unknown)';
+    if(map[co]) map[co].commission += parseFloat(c.commAmount||0);
+  });
+
+  const rows = Object.values(map).sort((a,b)=>b.booked-a.booked);
+  const maxBooked = Math.max(...rows.map(r=>r.booked), 1);
+
+  // Summary stat cards
+  const totalCos   = rows.length;
+  const withHap    = rows.filter(r=>r.happened>0).length;
+  const topCo      = rows[0];
+  const avgBooked  = (meetings.length/totalCos).toFixed(1);
+
+  el.innerHTML = `
+    <div class="stats-row" style="margin-bottom:20px">
+      <div class="stat-card"><div class="stat-label">Total Accounts</div><div class="stat-val ca">${totalCos}</div><div class="stat-sub">unique companies</div></div>
+      <div class="stat-card"><div class="stat-label">Accounts w/ Meetings</div><div class="stat-val cg">${withHap}</div><div class="stat-sub">at least 1 happened</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Bookings / Acct</div><div class="stat-val cam">${avgBooked}</div><div class="stat-sub">meetings per company</div></div>
+      <div class="stat-card"><div class="stat-label">Top Account</div><div class="stat-val" style="font-size:16px;letter-spacing:-.3px">${esc(topCo.company)}</div><div class="stat-sub">${topCo.booked} booking${topCo.booked!==1?'s':''}</div></div>
+    </div>
+
+    <div class="tcard">
+      <div class="twrap">
+        <table class="acct-table">
+          <thead><tr>
+            <th>#</th>
+            <th>Company</th>
+            <th>Bookings</th>
+            <th>Happened</th>
+            <th>No Show</th>
+            <th>Rescheduled</th>
+            <th>Show Rate</th>
+            <th>Acc. Rate</th>
+            <th>Locations</th>
+            <th>Commission</th>
+          </tr></thead>
+          <tbody>${rows.map((r,i)=>{
+            const denom = r.happened+r.noShow;
+            const sr    = denom>0 ? (r.happened/denom*100).toFixed(0)+'%' : '—';
+            const ar    = r.booked>0 ? (r.accepted/r.booked*100).toFixed(0)+'%' : '—';
+            const barPct= (r.booked/maxBooked*100).toFixed(1);
+            const barCol= r.happened>0 ? '#22c55e' : r.noShow>0 ? '#ef4444' : 'var(--acc)';
+            return `<tr>
+              <td><span class="acct-rank">${i+1}</span></td>
+              <td style="font-weight:600">${esc(r.company)}</td>
+              <td>
+                <span style="font-weight:700">${r.booked}</span>
+                <span class="acct-bar-wrap"><span class="acct-bar-fill" style="width:${barPct}%;background:var(--acc);display:block"></span></span>
+              </td>
+              <td style="color:#22c55e;font-weight:600">${r.happened||'—'}</td>
+              <td style="color:#ef4444">${r.noShow||'—'}</td>
+              <td style="color:#8b5cf6">${r.rescheduled||'—'}</td>
+              <td style="font-weight:700">${sr}</td>
+              <td>${ar}</td>
+              <td>${r.locations||'—'}</td>
+              <td style="color:#22c55e;font-weight:600">${r.commission?fmtM(r.commission):'—'}</td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+          <tfoot><tr>
+            <td colspan="2" style="color:var(--t3)">${rows.length} accounts</td>
+            <td style="font-weight:800">${meetings.length}</td>
+            <td style="color:#22c55e;font-weight:700">${rows.reduce((s,r)=>s+r.happened,0)}</td>
+            <td style="color:#ef4444">${rows.reduce((s,r)=>s+r.noShow,0)||'—'}</td>
+            <td style="color:#8b5cf6">${rows.reduce((s,r)=>s+r.rescheduled,0)||'—'}</td>
+            <td colspan="3"></td>
+            <td style="color:#22c55e;font-weight:700">${fmtM(rows.reduce((s,r)=>s+r.commission,0))}</td>
+          </tr></tfoot>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function onOvr(e,id)    { if(e.target===e.currentTarget) closeModal(id); }
+// escape key handled below
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg){
+  const w=document.getElementById('toastWrap');
+  const el=document.createElement('div'); el.className='toast'; el.textContent=msg; w.appendChild(el);
+  setTimeout(()=>{ el.classList.add('out'); el.addEventListener('animationend',()=>el.remove()); },2400);
+}
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+document.documentElement.setAttribute('data-theme',localStorage.getItem(KT)||'light');
+document.getElementById('themeToggle').addEventListener('click',()=>{
+  const n=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem(KT,n);
+});
+
+// ── Calendar ──────────────────────────────────────────────────────────────────
+let calView='month';
+let calSelectedDate=todayStr();
+const CAL_HOURS=[7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+const MONTHS_LONG=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS_S=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAYS_L=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function fmtTime12(t){ if(!t) return ''; const[h,m]=t.split(':'); const hr=+h; return `${hr===0?12:hr>12?hr-12:hr}:${m}${hr<12?'am':'pm'}`; }
+function getMeetCls(m){ if(m.happened==='Yes') return 'ce-hap'; if(m.happened==='No'||m.happened==='No Show') return 'ce-grey'; if(m.likelihood==='Hot') return 'ce-hot'; if(m.likelihood==='High') return 'ce-high'; return 'ce-med'; }
+
+function calSetView(v){
+  calView=v;
+  document.querySelectorAll('.cal-view-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('cvb-'+v); if(btn) btn.classList.add('active');
+  renderCalendar();
+}
+function calSetViewDay(dateStr){
+  calSelectedDate=dateStr;
+  const d=new Date(dateStr+'T00:00:00');
+  calYear=d.getFullYear(); calMonth=d.getMonth();
+  calSetView('day');
+}
+function calNav(dir){
+  if(calView==='month'){
+    calMonth+=dir;
+    if(calMonth>11){calMonth=0;calYear++;}
+    if(calMonth<0){calMonth=11;calYear--;}
+  } else {
+    const d=new Date(calSelectedDate+'T00:00:00');
+    d.setDate(d.getDate()+dir*(calView==='week'?7:1));
+    calSelectedDate=d.toISOString().slice(0,10);
+    calYear=d.getFullYear(); calMonth=d.getMonth();
+  }
+  renderCalendar();
+}
+function calGoToday(){
+  const now=new Date();
+  calYear=now.getFullYear(); calMonth=now.getMonth();
+  calSelectedDate=todayStr();
+  renderCalendar();
+}
+
+// Quick-add popover
+function calClickDay(dateStr, timeStr, ev){
+  ev.stopPropagation();
+  closeCalPopover();
+  const pop=document.createElement('div');
+  pop.className='cal-add-popover'; pop.id='calAddPop';
+  const display=timeStr?`${fmtD(dateStr)} at ${fmtTime12(timeStr)}`:fmtD(dateStr);
+  pop.innerHTML=`
+    <div class="cal-add-pop-title">${display}</div>
+    <button class="cal-add-pop-btn" onclick="closeCalPopover();openMeetingModal(null,'${dateStr}','${timeStr||''}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Add Meeting
+    </button>
+    <button class="cal-add-pop-btn" onclick="closeCalPopover();openTaskModal(null,'${dateStr}','${timeStr||''}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Add Task / Note
+    </button>`;
+  document.body.appendChild(pop);
+  const x=Math.min(ev.clientX+6, window.innerWidth-200);
+  const y=Math.min(ev.clientY+6, window.innerHeight-130);
+  pop.style.left=x+'px'; pop.style.top=y+'px';
+  setTimeout(()=>document.addEventListener('click',_calPopClose,{once:true}),0);
+}
+function _calPopClose(e){ if(!e.target.closest('#calAddPop')) closeCalPopover(); }
+function closeCalPopover(){ const p=document.getElementById('calAddPop'); if(p) p.remove(); }
+
+// Build event maps
+function buildCalMaps(){
+  const mByDate={}, tByDate={};
+  meetings.forEach(m=>{ if(!m.dateMeeting) return; const k=m.dateMeeting.slice(0,10); (mByDate[k]=mByDate[k]||[]).push(m); });
+  tasks.forEach(t=>{ if(!t.date) return; const k=t.date.slice(0,10); (tByDate[k]=tByDate[k]||[]).push(t); });
+  return {mByDate,tByDate};
+}
+function meetChip(m,small=false){ const cls=getMeetCls(m); const lbl=(m.timeMeeting?fmtTime12(m.timeMeeting)+' ':'')+(m.company||m.contact||'Meeting'); return `<div class="cal-event ${cls}" onclick="event.stopPropagation();openMeetingModal('${m.id}')" title="${esc(m.company||'')} — ${esc(m.contact||'')}">${esc(lbl)}</div>`; }
+function taskChip(t){ const cls=t.done==='Yes'?'ce-task-done':'ce-task'; const lbl=(t.timeTask?fmtTime12(t.timeTask)+' ':'')+(t.priority==='High'?'⚡ ':'')+t.title; return `<div class="cal-event ${cls}" onclick="event.stopPropagation();openTaskModal('${t.id}')" title="${esc(t.title)}">${esc(lbl)}</div>`; }
+
+function renderCalendar(){
+  if(calView==='month') renderMonthView();
+  else if(calView==='week') renderWeekView();
+  else renderDayView();
+  // sync today button opacity
+  const now=new Date();
+  const todayBtn=document.getElementById('calTodayBtn');
+  if(todayBtn){ const onToday=(calView==='month')?(calYear===now.getFullYear()&&calMonth===now.getMonth()):(calSelectedDate===todayStr()); todayBtn.style.opacity=onToday?'0.4':'1'; }
+}
+
+function renderMonthView(){
+  const {mByDate,tByDate}=buildCalMaps();
+  document.getElementById('calMonthLabel').textContent=`${MONTHS_LONG[calMonth]} ${calYear}`;
+  const todayISO=todayStr();
+  const firstDay=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const prevDays=new Date(calYear,calMonth,0).getDate();
+  const totalCells=firstDay+daysInMonth;
+  const remainder=totalCells%7===0?0:7-(totalCells%7);
+
+  let html=`<div class="cal-grid-wrap"><div class="cal-dow-row">`;
+  DAYS_S.forEach(d=>html+=`<div>${d}</div>`);
+  html+=`</div><div class="cal-grid">`;
+
+  for(let i=0;i<firstDay;i++){
+    html+=`<div class="cal-cell cal-other"><div class="cal-day-num">${prevDays-firstDay+1+i}</div></div>`;
+  }
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday=ds===todayISO;
+    html+=`<div class="cal-cell${isToday?' cal-today':''}" onclick="calClickDay('${ds}','',event)">`;
+    html+=`<div class="cal-day-num">${d}</div>`;
+    (mByDate[ds]||[]).forEach(m=>html+=meetChip(m));
+    (tByDate[ds]||[]).forEach(t=>html+=taskChip(t));
+    html+=`</div>`;
+  }
+  for(let i=1;i<=remainder;i++){
+    html+=`<div class="cal-cell cal-other"><div class="cal-day-num">${i}</div></div>`;
+  }
+  html+=`</div></div>`;
+  document.getElementById('calContent').innerHTML=html;
+}
+
+function renderWeekView(){
+  const {mByDate,tByDate}=buildCalMaps();
+  const sel=new Date(calSelectedDate+'T00:00:00');
+  const dow=sel.getDay();
+  const sun=new Date(sel); sun.setDate(sel.getDate()-dow);
+  const days=Array.from({length:7},(_,i)=>{ const d=new Date(sun); d.setDate(sun.getDate()+i); return d.toISOString().slice(0,10); });
+  const todayISO=todayStr();
+
+  const d0=new Date(days[0]+'T00:00:00'), d6=new Date(days[6]+'T00:00:00');
+  document.getElementById('calMonthLabel').textContent=
+    d0.getMonth()===d6.getMonth()
+      ? `${MONTHS_LONG[d0.getMonth()]} ${d0.getFullYear()}`
+      : `${d0.toLocaleDateString('en-US',{month:'short'})} – ${d6.toLocaleDateString('en-US',{month:'short',year:'numeric'})}`;
+
+  const cols=`52px repeat(7,1fr)`;
+  let html=`<div class="cal-td-wrap">`;
+
+  // Header
+  html+=`<div class="cal-td-head" style="grid-template-columns:${cols}"><div class="cal-td-head-cell"></div>`;
+  days.forEach((ds,i)=>{
+    const dt=new Date(ds+'T00:00:00');
+    const isT=ds===todayISO;
+    html+=`<div class="cal-td-head-cell${isT?' is-today':''}">
+      <div class="dow">${DAYS_S[i]}</div>
+      <div class="dnum" onclick="calSetViewDay('${ds}')">${dt.getDate()}</div>
+    </div>`;
+  });
+  html+=`</div>`;
+
+  // All-day strip
+  html+=`<div class="cal-allday-strip" style="grid-template-columns:${cols}">`;
+  html+=`<div class="cal-allday-label">All<br>day</div>`;
+  days.forEach(ds=>{
+    const noT=(mByDate[ds]||[]).filter(m=>!m.timeMeeting);
+    const noTk=(tByDate[ds]||[]).filter(t=>!t.timeTask);
+    html+=`<div class="cal-allday-cell" onclick="calClickDay('${ds}','',event)">`;
+    noT.forEach(m=>html+=meetChip(m));
+    noTk.forEach(t=>html+=taskChip(t));
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+
+  // Scrollable time body
+  html+=`<div class="cal-td-scroll"><div class="cal-td-body" style="grid-template-columns:${cols}">`;
+  // time col
+  html+=`<div class="cal-time-col">`;
+  CAL_HOURS.forEach(h=>html+=`<div class="cal-time-label">${h===12?'12pm':h>12?`${h-12}pm`:`${h}am`}</div>`);
+  html+=`</div>`;
+  // day cols
+  days.forEach(ds=>{
+    html+=`<div class="cal-td-col">`;
+    CAL_HOURS.forEach(h=>{
+      const hStr=String(h).padStart(2,'0');
+      const tStr=`${hStr}:00`;
+      const mHere=(mByDate[ds]||[]).filter(m=>m.timeMeeting&&m.timeMeeting.slice(0,2)===hStr);
+      const tHere=(tByDate[ds]||[]).filter(t=>t.timeTask&&t.timeTask.slice(0,2)===hStr);
+      html+=`<div class="cal-hour-slot" onclick="calClickDay('${ds}','${tStr}',event)">`;
+      mHere.forEach(m=>html+=meetChip(m));
+      tHere.forEach(t=>html+=taskChip(t));
+      html+=`</div>`;
+    });
+    html+=`</div>`;
+  });
+  html+=`</div></div></div>`;
+  document.getElementById('calContent').innerHTML=html;
+}
+
+function renderDayView(){
+  const {mByDate,tByDate}=buildCalMaps();
+  const todayISO=todayStr();
+  const ds=calSelectedDate;
+  const dt=new Date(ds+'T00:00:00');
+  const isToday=ds===todayISO;
+
+  document.getElementById('calMonthLabel').textContent=
+    `${DAYS_L[dt.getDay()]}, ${MONTHS_LONG[dt.getMonth()]} ${dt.getDate()}`;
+
+  const allMeets=(mByDate[ds]||[]).filter(m=>!m.timeMeeting);
+  const allTasks=(tByDate[ds]||[]).filter(t=>!t.timeTask);
+
+  let html=`<div class="cal-td-wrap">`;
+  // All-day
+  html+=`<div class="cal-allday-strip" style="grid-template-columns:52px 1fr">
+    <div class="cal-allday-label">All<br>day</div>
+    <div class="cal-allday-cell" style="padding:6px 8px;min-height:36px" onclick="calClickDay('${ds}','',event)">`;
+  if(!allMeets.length && !allTasks.length) html+=`<span style="font-size:12px;color:var(--t3)">Click to add…</span>`;
+  allMeets.forEach(m=>html+=meetChip(m));
+  allTasks.forEach(t=>html+=taskChip(t));
+  html+=`</div></div>`;
+
+  // Time body
+  html+=`<div class="cal-td-scroll"><div class="cal-td-body" style="grid-template-columns:52px 1fr">`;
+  html+=`<div class="cal-time-col">`;
+  CAL_HOURS.forEach(h=>html+=`<div class="cal-time-label">${h===12?'12pm':h>12?`${h-12}pm`:`${h}am`}</div>`);
+  html+=`</div><div class="cal-td-col">`;
+  CAL_HOURS.forEach(h=>{
+    const hStr=String(h).padStart(2,'0');
+    const tStr=`${hStr}:00`;
+    const mHere=(mByDate[ds]||[]).filter(m=>m.timeMeeting&&m.timeMeeting.slice(0,2)===hStr);
+    const tHere=(tByDate[ds]||[]).filter(t=>t.timeTask&&t.timeTask.slice(0,2)===hStr);
+    html+=`<div class="cal-hour-slot" onclick="calClickDay('${ds}','${tStr}',event)">`;
+    if(!mHere.length&&!tHere.length) html+=`<span style="font-size:11px;color:var(--bdr)">+</span>`;
+    mHere.forEach(m=>html+=meetChip(m));
+    tHere.forEach(t=>html+=taskChip(t));
+    html+=`</div>`;
+  });
+  html+=`</div></div></div></div>`;
+  document.getElementById('calContent').innerHTML=html;
+}
+
+
+// ── TASKS ─────────────────────────────────────────────────────────────────────
+function openTaskModal(id=null, prefillDate=null, prefillTime=null){
+  editTkId=id;
+  document.getElementById('tkModalTitle').textContent=id?'Edit Task':'Add Task / Note';
+  document.getElementById('tkSaveBtn').textContent=id?'Save Changes':'Save Task';
+  document.getElementById('tkDeleteBtn').style.display=id?'':'none';
+  if(id){
+    const t=tasks.find(x=>x.id===id);
+    if(t){
+      document.getElementById('tk_title').value=t.title||'';
+      document.getElementById('tk_date').value=t.date||'';
+      document.getElementById('tk_time').value=t.timeTask||'';
+      document.getElementById('tk_type').value=t.type||'Task';
+      document.getElementById('tk_prio').value=t.priority||'Normal';
+      document.getElementById('tk_done').value=t.done||'No';
+      document.getElementById('tk_notes').value=t.notes||'';
+    }
+  } else {
+    document.getElementById('tk_title').value='';
+    document.getElementById('tk_date').value=prefillDate||todayStr();
+    document.getElementById('tk_time').value=prefillTime||'';
+    document.getElementById('tk_type').value='Task';
+    document.getElementById('tk_prio').value='Normal';
+    document.getElementById('tk_done').value='No';
+    document.getElementById('tk_notes').value='';
+  }
+  openModal('tkModal');
+  setTimeout(()=>document.getElementById('tk_title').focus(),50);
+}
+function saveTask(e){
+  e.preventDefault();
+  const t={
+    id:editTkId||uid(),
+    title:document.getElementById('tk_title').value.trim(),
+    date:document.getElementById('tk_date').value,
+    timeTask:document.getElementById('tk_time').value,
+    type:document.getElementById('tk_type').value,
+    priority:document.getElementById('tk_prio').value,
+    done:document.getElementById('tk_done').value,
+    notes:document.getElementById('tk_notes').value.trim(),
+  };
+  if(editTkId){const i=tasks.findIndex(x=>x.id===editTkId);if(i!==-1)tasks[i]=t;toast('Task updated ✓');}
+  else{tasks.push(t);toast('Task added ✓');}
+  saveAll(); closeModal('tkModal');
+  renderOverview();
+  // refresh calendar if open
+  if(document.getElementById('tab-calendar').classList.contains('active')) renderCalendar();
+}
+function delTaskFromModal(){
+  if(!editTkId) return;
+  if(!confirm('Delete this task?')) return;
+  tasks=tasks.filter(x=>x.id!==editTkId);
+  saveAll(); closeModal('tkModal'); toast('Task deleted');
+  renderOverview();
+  if(document.getElementById('tab-calendar').classList.contains('active')) renderCalendar();
+}
+function toggleTaskDone(id){
+  const t=tasks.find(x=>x.id===id);
+  if(!t) return;
+  t.done=t.done==='Yes'?'No':'Yes';
+  saveAll(); renderOverview();
+  if(document.getElementById('tab-calendar').classList.contains('active')) renderCalendar();
+}
+
+// ── PROSPECTS ────────────────────────────────────────────────────────────────
+function tempB(v){
+  const m={Hot:['b-hot','🔥 Hot'],Warm:['b-warm','🌤 Warm'],Cold:['b-cold','❄️ Cold']};
+  const[c,l]=m[v]||['b-cold','Cold'];
+  return `<span class="badge ${c}"><span class="bd"></span>${l}</span>`;
+}
+function adjTouch(field,dir){
+  const el=document.getElementById('pr_'+field);
+  const cur=parseInt(el.value||'0');
+  const next=Math.max(0,cur+dir);
+  el.value=next;
+  document.getElementById('pr_'+field+'_display').textContent=next;
+  const calls=parseInt(document.getElementById('pr_calls').value||'0');
+  const emails=parseInt(document.getElementById('pr_emails').value||'0');
+  const linkedins=parseInt(document.getElementById('pr_linkedins').value||'0');
+  document.getElementById('pr_total_display').textContent=calls+emails+linkedins;
+}
+// ── Prospect conversion detection ────────────────────────────────────────────
+function checkProspectConversions(){
+  let changed=false;
+  prospects.forEach(p=>{
+    const pCo=(p.company||'').toLowerCase().trim();
+    const pCt=(p.contact||'').toLowerCase().trim();
+    const match=meetings.find(m=>{
+      const mCo=(m.company||'').toLowerCase().trim();
+      const mCt=(m.contact||'').toLowerCase().trim();
+      return (pCo&&mCo&&pCo===mCo)&&(pCt&&mCt&&pCt===mCt);
+    });
+    const was=p.converted;
+    if(match){
+      p.converted=true;
+      if(!p.convertedDate) p.convertedDate=match.dateBooked||match.dateMeeting||todayStr();
+      if(!p.convertedMeetingId) p.convertedMeetingId=match.id;
+    } else {
+      p.converted=false;
+      p.convertedDate='';
+      p.convertedMeetingId='';
+    }
+    if(!!was!==!!p.converted) changed=true;
+  });
+  return changed;
+}
+
+function openProspectModal(id=null){
+  editPrId=id;
+  document.getElementById('prModalTitle').textContent=id?'Edit Prospect':'Add Prospect';
+  document.getElementById('prSaveBtn').textContent=id?'Save Changes':'Save Prospect';
+  document.getElementById('prDeleteBtn').style.display=id?'':'none';
+  if(id){
+    const p=prospects.find(x=>x.id===id);
+    if(p){
+      document.getElementById('pr_co').value=p.company||'';
+      document.getElementById('pr_dba').value=p.dba||'';
+      document.getElementById('pr_ct').value=p.contact||'';
+      document.getElementById('pr_ttl').value=p.title||'';
+      document.getElementById('pr_ph').value=p.phone||'';
+      document.getElementById('pr_em').value=p.email||'';
+      document.getElementById('pr_st').value=p.status||'Cold';
+      document.getElementById('pr_lt').value=p.lastTouched||'';
+      document.getElementById('pr_calls').value=p.calls||0;
+      document.getElementById('pr_emails').value=p.emails||0;
+      document.getElementById('pr_linkedins').value=p.linkedins||0;
+      document.getElementById('pr_calls_display').textContent=p.calls||0;
+      document.getElementById('pr_emails_display').textContent=p.emails||0;
+      document.getElementById('pr_linkedins_display').textContent=p.linkedins||0;
+      document.getElementById('pr_total_display').textContent=(p.calls||0)+(p.emails||0)+(p.linkedins||0);
+      document.getElementById('pr_locs').value=p.locations||'';
+      document.getElementById('pr_na_type').value=p.nextAction||'None';
+      document.getElementById('pr_na_date').value=p.nextActionDate||'';
+      document.getElementById('pr_notes').value=p.notes||'';
+    }
+  } else {
+    ['pr_co','pr_dba','pr_ct','pr_ttl','pr_ph','pr_em','pr_lt','pr_notes'].forEach(f=>document.getElementById(f).value='');
+    document.getElementById('pr_locs').value='';
+    document.getElementById('pr_st').value='Cold';
+    document.getElementById('pr_na_type').value='None';
+    document.getElementById('pr_na_date').value='';
+    document.getElementById('pr_calls').value=0;
+    document.getElementById('pr_emails').value=0;
+    document.getElementById('pr_linkedins').value=0;
+    document.getElementById('pr_calls_display').textContent=0;
+    document.getElementById('pr_emails_display').textContent=0;
+    document.getElementById('pr_linkedins_display').textContent=0;
+    document.getElementById('pr_total_display').textContent=0;
+  }
+  toggleNaDate();
+  openModal('prModal');
+  setTimeout(()=>document.getElementById('pr_co').focus(),50);
+}
+
+function toggleNaDate(){
+  const v=document.getElementById('pr_na_type').value;
+  const show=v!=='None';
+  document.getElementById('pr_na_date_wrap').style.display=show?'':'none';
+  document.getElementById('pr_na_cal_hint').style.display=(show&&document.getElementById('pr_na_date').value)?'':'none';
+  document.getElementById('pr_na_date').addEventListener('input',()=>{
+    document.getElementById('pr_na_cal_hint').style.display=(show&&document.getElementById('pr_na_date').value)?'':'none';
+  },{once:true});
+}
+
+function saveProspect(e){
+  e.preventDefault();
+  const prevP=editPrId?prospects.find(x=>x.id===editPrId):null;
+  const p={
+    id:editPrId||uid(),
+    company:document.getElementById('pr_co').value.trim(),
+    dba:document.getElementById('pr_dba').value.trim(),
+    contact:document.getElementById('pr_ct').value.trim(),
+    title:document.getElementById('pr_ttl').value.trim(),
+    phone:document.getElementById('pr_ph').value.trim(),
+    email:document.getElementById('pr_em').value.trim(),
+    status:document.getElementById('pr_st').value,
+    lastTouched:document.getElementById('pr_lt').value,
+    calls:parseInt(document.getElementById('pr_calls').value||'0'),
+    emails:parseInt(document.getElementById('pr_emails').value||'0'),
+    linkedins:parseInt(document.getElementById('pr_linkedins').value||'0'),
+    locations:parseInt(document.getElementById('pr_locs').value||'0')||0,
+    nextAction:document.getElementById('pr_na_type').value,
+    nextActionDate:document.getElementById('pr_na_date').value,
+    notes:document.getElementById('pr_notes').value.trim(),
+    dateAdded:editPrId?(prevP||{}).dateAdded||todayStr():todayStr(),
+  };
+  if(editPrId){const i=prospects.findIndex(x=>x.id===editPrId);if(i!==-1)prospects[i]=p;}
+  else{prospects.push(p);}
+
+  // Auto-create/update calendar task if action has a date
+  if(p.nextAction!=='None' && p.nextActionDate){
+    // Remove old linked task for this prospect (if any)
+    tasks=tasks.filter(t=>t.prospectId!==p.id);
+    const actionLabel={Call:'📞 Call',Email:'✉️ Email','Follow Up':'🔁 Follow Up',LinkedIn:'💼 LinkedIn',Meeting:'📅 Book Meeting'}[p.nextAction]||p.nextAction;
+    tasks.push({
+      id:uid(),
+      title:`${actionLabel}: ${p.company}${p.contact?' — '+p.contact:''}`,
+      date:p.nextActionDate,
+      timeTask:'',
+      type:'Follow-up',
+      priority:p.status==='Hot'?'High':'Normal',
+      done:'No',
+      notes:p.notes||'',
+      prospectId:p.id,
+    });
+    toast(`${editPrId?'Prospect updated':'Prospect added'} + calendar task created ✓`);
+  } else {
+    // Clear any old task if action removed
+    if(p.nextAction==='None') tasks=tasks.filter(t=>t.prospectId!==p.id);
+    toast(editPrId?'Prospect updated ✓':'Prospect added ✓');
+  }
+
+  checkProspectConversions();
+  saveAll(); closeModal('prModal'); renderProspects(); renderOverview();
+  if(document.getElementById('tab-calendar').classList.contains('active')) renderCalendar();
+}
+
+function delProspectFromModal(){
+  if(!editPrId) return;
+  if(!confirm('Delete this prospect?')) return;
+  tasks=tasks.filter(t=>t.prospectId!==editPrId);
+  prospects=prospects.filter(x=>x.id!==editPrId);
+  selectedProspects.delete(editPrId);
+  saveAll(); closeModal('prModal'); toast('Prospect deleted'); renderProspects(); renderOverview();
+}
+
+function naBadge(p){
+  const na=p.nextAction||'None';
+  if(na==='None') return '<span class="na-badge na-none">—</span>';
+  const cls={Call:'na-call',Email:'na-email','Follow Up':'na-followup',LinkedIn:'na-linkedin',Meeting:'na-meeting'}[na]||'na-none';
+  const icon={Call:'📞',Email:'✉️','Follow Up':'🔁',LinkedIn:'💼',Meeting:'📅'}[na]||'';
+  const today=todayStr();
+  const overdue=p.nextActionDate&&p.nextActionDate<today;
+  return `<div>
+    <span class="na-badge ${overdue?'na-overdue':cls}">${icon} ${esc(na)}</span>
+    ${p.nextActionDate?`<div class="na-date${overdue?' overdue':''}">${overdue?'⚠ ':''}${fmtD(p.nextActionDate)}</div>`:''}
+  </div>`;
+}
+
+function pSort(k){
+  if(pSK===k) pSD*=-1; else{pSK=k;pSD=1;}
+  document.querySelectorAll('[id^="ps-"]').forEach(e=>e.textContent='↕');
+  const ic=document.getElementById('ps-'+k); if(ic) ic.textContent=pSD===1?'↑':'↓';
+  renderProspects();
+}
+
+function renderProspects(){
+  const q=(document.getElementById('pSearch')?.value||'').toLowerCase();
+  const fSt=document.getElementById('pFStatus')?.value||'';
+  const fAct=document.getElementById('pFAction')?.value||'';
+  const fTch=document.getElementById('pFTouches')?.value||'';
+  const fTtl=document.getElementById('pFTitle')?.value||'';
+  const fConv=document.getElementById('pFConv')?.value||'';
+  const today=todayStr();
+
+  // Populate title dropdown
+  const titleSel=document.getElementById('pFTitle');
+  if(titleSel){
+    const cur=titleSel.value;
+    const titles=[...new Set(prospects.map(p=>p.title).filter(Boolean))].sort();
+    titleSel.innerHTML='<option value="">All Titles</option>'+titles.map(t=>`<option value="${esc(t)}"${cur===t?' selected':''}>${esc(t)}</option>`).join('');
+  }
+
+  let d=prospects.filter(p=>{
+    if(fSt && p.status!==fSt) return false;
+    if(fTtl && p.title!==fTtl) return false;
+    if(fConv==='yes' && !p.converted) return false;
+    if(fConv==='no' && p.converted) return false;
+    if(fAct==='overdue'){
+      if(!p.nextActionDate||p.nextActionDate>=today||p.nextAction==='None') return false;
+    } else if(fAct==='None'){
+      if(p.nextAction && p.nextAction!=='None') return false;
+    } else if(fAct && p.nextAction!==fAct) return false;
+    if(fTch){
+      const tot=(p.calls||0)+(p.emails||0)+(p.linkedins||0);
+      if(fTch==='0'&&tot!==0) return false;
+      if(fTch==='1-5'&&(tot<1||tot>5)) return false;
+      if(fTch==='6-10'&&(tot<6||tot>10)) return false;
+      if(fTch==='10+'&&tot<=10) return false;
+    }
+    if(q && !`${p.company} ${p.contact} ${p.dba} ${p.title} ${p.notes} ${p.email}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  d.sort((a,b)=>{
+    let av,bv;
+    if(pSK==='touches'){ av=(a.calls||0)+(a.emails||0)+(a.linkedins||0); bv=(b.calls||0)+(b.emails||0)+(b.linkedins||0); }
+    else { av=a[pSK]??''; bv=b[pSK]??''; }
+    if(pSK==='calls'||pSK==='emails'||pSK==='linkedins'||pSK==='touches'||pSK==='locations'){ av=Number(av); bv=Number(bv); }
+    if(av<bv) return -pSD; if(av>bv) return pSD; return 0;
+  });
+
+  // Stats row
+  const hot=prospects.filter(p=>p.status==='Hot').length;
+  const warm=prospects.filter(p=>p.status==='Warm').length;
+  const overdue=prospects.filter(p=>p.nextActionDate&&p.nextActionDate<today&&p.nextAction!=='None').length;
+  const totalTouches=prospects.reduce((s,p)=>s+(p.calls||0)+(p.emails||0)+(p.linkedins||0),0);
+  const totalLocs=prospects.reduce((s,p)=>s+(p.locations||0),0);
+  const convCount=prospects.filter(p=>p.converted).length;
+  const convRate=prospects.length>0?(convCount/prospects.length*100).toFixed(1):null;
+  document.getElementById('pStats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Total Prospects</div><div class="stat-val ca">${prospects.length}</div><div class="stat-sub">in pipeline</div></div>
+    <div class="stat-card"><div class="stat-label">Total Locations</div><div class="stat-val ca">${totalLocs}</div><div class="stat-sub">across all prospects</div></div>
+    <div class="stat-card"><div class="stat-label">Converted</div><div class="stat-val cg">${convCount}</div><div class="stat-sub">booked as meetings</div></div>
+    <div class="stat-card"><div class="stat-label">Conversion Rate</div><div class="stat-val ${convRate&&parseFloat(convRate)>=20?'cg':convRate&&parseFloat(convRate)>=10?'cam':'cr'}">${convRate?convRate+'%':'—'}</div><div class="stat-sub">prospects → meetings</div></div>
+    <div class="stat-card"><div class="stat-label">Hot</div><div class="stat-val cr">${hot}</div><div class="stat-sub">ready to book</div></div>
+    <div class="stat-card"><div class="stat-label">Warm</div><div class="stat-val cam">${warm}</div><div class="stat-sub">engaged</div></div>
+    <div class="stat-card"><div class="stat-label">Overdue Actions</div><div class="stat-val cr">${overdue}</div><div class="stat-sub">need attention</div></div>
+    <div class="stat-card"><div class="stat-label">Total Touches</div><div class="stat-val ca">${totalTouches}</div><div class="stat-sub">calls + emails + LinkedIn</div></div>
+  `;
+
+  const tb=document.getElementById('pBody'), em=document.getElementById('pEmpty');
+  if(!d.length){tb.innerHTML='';em.style.display='block';return;}
+  em.style.display='none';
+  tb.innerHTML=d.map(p=>`<tr class="prospect-row${selectedProspects.has(p.id)?' p-selected':''}${p.converted?' p-converted':''}" onclick="openProspectModal('${p.id}')" title="Click to edit">
+    <td class="p-cb-cell" onclick="event.stopPropagation()"><input type="checkbox" class="p-cb" ${selectedProspects.has(p.id)?'checked':''} onchange="toggleProspect('${p.id}',this)"></td>
+    <td><span class="tp">${esc(p.company)}</span>${p.dba?`<div class="ts">${esc(p.dba)}</div>`:''}${p.converted?`<div class="ts" style="color:#16a34a;font-size:11px;font-weight:700">✓ Converted${p.convertedDate?' · '+fmtD(p.convertedDate):''}</div>`:''}</td>
+    <td class="tm">${esc(p.contact)}</td>
+    <td class="tsmall">${esc(p.title||'—')}</td>
+    <td><div class="tsmall">${esc(p.phone||'—')}</div>${p.email?`<div class="ts" style="color:var(--acc);font-size:11px">${esc(p.email)}</div>`:''}</td>
+    <td>${tempB(p.status)}${p.converted?`<div style="margin-top:4px"><span class="badge b-converted"><span class="bd"></span>Converted</span></div>`:''}</td>
+    <td style="text-align:center;font-weight:800;font-size:16px;color:var(--acc)">${p.locations||0}</td>
+    <td style="text-align:center;font-weight:700;color:var(--acc)">${p.calls||0}</td>
+    <td style="text-align:center;font-weight:700;color:var(--acc)">${p.emails||0}</td>
+    <td style="text-align:center;font-weight:700;color:var(--acc)">${p.linkedins||0}</td>
+    <td style="text-align:center;font-weight:800;font-size:15px">${(p.calls||0)+(p.emails||0)+(p.linkedins||0)}</td>
+    <td class="tsmall">${p.lastTouched?fmtD(p.lastTouched):'—'}</td>
+    <td>${naBadge(p)}</td>
+    <td class="tsmall" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.notes||'—')}</td>
+  </tr>`).join('');
+  updatePBulkBar();
+}
+
+// ── Prospect selection ────────────────────────────────────────────────────────
+function toggleProspect(id, cb){
+  if(cb.checked) selectedProspects.add(id);
+  else selectedProspects.delete(id);
+  const row=cb.closest('tr');
+  if(row) row.classList.toggle('p-selected', cb.checked);
+  updatePBulkBar();
+}
+
+function toggleAllProspects(cb){
+  document.querySelectorAll('#pBody .p-cb').forEach(c=>{
+    const match=c.getAttribute('onchange')?.match(/'([^']+)'/);
+    if(!match) return;
+    const pid=match[1];
+    if(cb.checked) selectedProspects.add(pid);
+    else selectedProspects.delete(pid);
+    c.checked=cb.checked;
+    const row=c.closest('tr');
+    if(row) row.classList.toggle('p-selected', cb.checked);
+  });
+  updatePBulkBar();
+}
+
+function updatePBulkBar(){
+  const n=selectedProspects.size;
+  const bar=document.getElementById('pBulkBar');
+  const lbl=document.getElementById('pBulkCount');
+  if(bar) bar.classList.toggle('visible', n>0);
+  if(lbl) lbl.textContent=`${n} prospect${n!==1?'s':''} selected`;
+  // Update select-all checkbox state
+  const all=document.getElementById('pSelectAll');
+  if(all){
+    const total=document.querySelectorAll('#pBody .p-cb').length;
+    all.indeterminate=n>0&&n<total;
+    all.checked=total>0&&n===total;
+  }
+}
+
+function clearProspectSelection(){
+  selectedProspects.clear();
+  renderProspects();
+}
+
+function deleteSelectedProspects(){
+  if(!selectedProspects.size) return;
+  const n=selectedProspects.size;
+  if(!confirm(`Delete ${n} prospect${n!==1?'s':''}? This cannot be undone.`)) return;
+  tasks=tasks.filter(t=>!selectedProspects.has(t.prospectId));
+  prospects=prospects.filter(p=>!selectedProspects.has(p.id));
+  selectedProspects.clear();
+  saveAll(); renderProspects(); renderOverview();
+  toast(`${n} prospect${n!==1?'s':''} deleted`);
+}
+
+function exportSelectedProspects(){
+  const sel=prospects.filter(p=>selectedProspects.has(p.id));
+  if(!sel.length) return;
+  const headers=['Company','DBA','Contact','Title','Phone','Email','Status','Locations','Calls','Emails','LinkedIn','Touches','Last Touched','Next Action','Next Action Date','Notes'];
+  const rows=sel.map(p=>[
+    p.company||'',p.dba||'',p.contact||'',p.title||'',p.phone||'',p.email||'',
+    p.status||'',p.locations||0,p.calls||0,p.emails||0,p.linkedins||0,
+    (p.calls||0)+(p.emails||0)+(p.linkedins||0),
+    p.lastTouched||'',p.nextAction||'',p.nextActionDate||'',p.notes||''
+  ]);
+  const escv=v=>{ const s=String(v==null?'':v); return s.includes(',')||s.includes('"')||s.includes('\n')?`"${s.replace(/"/g,'""')}"`:s; };
+  const csv=[headers.map(escv).join(','),...rows.map(r=>r.map(escv).join(','))].join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=`prospects-${todayStr()}.csv`; a.click();
+  URL.revokeObjectURL(a.href);
+  toast(`${sel.length} prospect${sel.length!==1?'s':''} exported ✓`);
+}
+
+// ── CSV Import for Prospects ──────────────────────────────────────────────────
+function parseCSV(text){
+  const rows=[]; let cur='', inQ=false, row=[];
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(c==='"'){ if(inQ&&text[i+1]==='"'){cur+='"';i++;}else inQ=!inQ; }
+    else if(c===','&&!inQ){ row.push(cur.trim()); cur=''; }
+    else if((c==='\n'||c==='\r')&&!inQ){
+      if(cur||row.length){ row.push(cur.trim()); rows.push(row); cur=''; row=[]; }
+      if(c==='\r'&&text[i+1]==='\n') i++;
+    } else cur+=c;
+  }
+  if(cur||row.length){ row.push(cur.trim()); rows.push(row); }
+  return rows;
+}
+function importProspectCSV(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const rows=parseCSV(ev.target.result);
+      if(rows.length<2){toast('CSV appears empty');return;}
+      const headers=rows[0].map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,''));
+      const map={
+        company:['company','companyname','accountname','account','business','businessname'],
+        contact:['contact','contactname','name','fullname','firstname','rep'],
+        title:['title','jobtitle','position','role'],
+        phone:['phone','phonenumber','cell','mobile','telephone'],
+        email:['email','emailaddress','mail'],
+        dba:['dba','doingbusinessas','tradename'],
+        status:['status','temperature','stage','temp','likelihood'],
+        calls:['calls','callcount','numcalls'],
+        emails:['emails','emailcount','numemails'],
+        linkedins:['linkedin','linkedins','linkedincount','numlinkedin','li'],
+        locations:['locations','locationcount','numlocs','numlocations','locs'],
+        notes:['notes','note','comments','description','actionnotes','nextactionnotes'],
+        nextAction:['nextaction','action','nextstep'],
+        nextActionDate:['nextactiondate','actiondate','duedate','followupdate','followup'],
+      };
+      function findCol(field){ for(const alias of map[field]||[]){ const i=headers.indexOf(alias); if(i!==-1) return i; } return -1; }
+      const cols={};
+      Object.keys(map).forEach(f=>{ cols[f]=findCol(f); });
+
+      const statusNorm=v=>{ const l=(v||'').toLowerCase(); if(l.includes('hot')) return 'Hot'; if(l.includes('warm')) return 'Warm'; return 'Cold'; };
+      let added=0, skipped=0;
+      for(let i=1;i<rows.length;i++){
+        const r=rows[i];
+        if(!r.length||r.every(c=>!c)) continue;
+        const get=f=>cols[f]!==-1&&cols[f]<r.length?r[cols[f]]:'';
+        const company=get('company'); if(!company){skipped++;continue;}
+        const na=get('nextAction')||'None';
+        const naType={call:'Call',email:'Email','follow up':'Follow Up','follow-up':'Follow Up',linkedin:'LinkedIn',meeting:'Meeting'}[na.toLowerCase()]||'None';
+        const p={
+          id:uid(),
+          company, contact:get('contact'), title:get('title'), phone:get('phone'),
+          email:get('email'), dba:get('dba'),
+          status:statusNorm(get('status')),
+          calls:parseInt(get('calls'))||0, emails:parseInt(get('emails'))||0, linkedins:parseInt(get('linkedins'))||0,
+          locations:parseInt(get('locations'))||0,
+          notes:get('notes'), lastTouched:'', dateAdded:todayStr(),
+          nextAction:naType, nextActionDate:get('nextActionDate'),
+        };
+        // Auto-create calendar task if action+date present
+        if(naType!=='None'&&p.nextActionDate){
+          const actionLabel={Call:'📞 Call',Email:'✉️ Email','Follow Up':'🔁 Follow Up',LinkedIn:'💼 LinkedIn',Meeting:'📅 Book Meeting'}[naType]||naType;
+          tasks.push({id:uid(),title:`${actionLabel}: ${p.company}${p.contact?' — '+p.contact:''}`,date:p.nextActionDate,timeTask:'',type:'Follow-up',priority:p.status==='Hot'?'High':'Normal',done:'No',notes:p.notes||'',prospectId:p.id});
+        }
+        prospects.push(p); added++;
+      }
+      saveAll(); renderProspects(); renderOverview();
+      toast(`Imported ${added} prospect${added!==1?'s':''}${skipped?` (${skipped} skipped — missing company)`:''}  ✓`);
+    }catch(err){ alert('Could not parse CSV. Please check the file format.'); console.error(err); }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ── DRAG-AND-DROP TABS ───────────────────────────────────────────────────────
+(function initTabDrag(){
+  const nav=document.getElementById('tabNav');
+  let dragSrc=null;
+  nav.addEventListener('dragstart',e=>{
+    const btn=e.target.closest('.tab-btn');
+    if(!btn) return;
+    dragSrc=btn;
+    e.dataTransfer.effectAllowed='move';
+    setTimeout(()=>btn.style.opacity='.4',0);
+  });
+  nav.addEventListener('dragend',e=>{
+    const btn=e.target.closest('.tab-btn');
+    if(btn){ btn.style.opacity=''; btn.classList.remove('drag-over'); }
+    nav.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('drag-over'));
+    saveTabOrder();
+  });
+  nav.addEventListener('dragover',e=>{
+    e.preventDefault(); e.dataTransfer.dropEffect='move';
+    const btn=e.target.closest('.tab-btn');
+    if(btn && btn!==dragSrc){
+      nav.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('drag-over'));
+      btn.classList.add('drag-over');
+    }
+  });
+  nav.addEventListener('dragleave',e=>{
+    const btn=e.target.closest('.tab-btn');
+    if(btn) btn.classList.remove('drag-over');
+  });
+  nav.addEventListener('drop',e=>{
+    e.preventDefault();
+    const btn=e.target.closest('.tab-btn');
+    if(!btn||btn===dragSrc) return;
+    btn.classList.remove('drag-over');
+    const btns=[...nav.querySelectorAll('.tab-btn')];
+    const srcIdx=btns.indexOf(dragSrc);
+    const tgtIdx=btns.indexOf(btn);
+    if(srcIdx<tgtIdx) nav.insertBefore(dragSrc,btn.nextSibling);
+    else nav.insertBefore(dragSrc,btn);
+  });
+  function saveTabOrder(){
+    const order=[...nav.querySelectorAll('.tab-btn')].map(b=>b.dataset.tab);
+    localStorage.setItem(KTAB,JSON.stringify(order));
+  }
+  function restoreTabOrder(){
+    const saved=JSON.parse(localStorage.getItem(KTAB)||'null');
+    if(!saved||!Array.isArray(saved)) return;
+    saved.forEach(tabName=>{
+      const btn=nav.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+      if(btn) nav.appendChild(btn);
+    });
+  }
+  restoreTabOrder();
+})();
+
+// ── Overview tasks & prospects cards ─────────────────────────────────────────
+const _origRenderOverview=renderOverview;
+renderOverview=function(){
+  _origRenderOverview();
+  // Tasks card
+  const today=todayStr();
+  const upcoming=tasks.filter(t=>t.done!=='Yes'&&t.date>=today).sort((a,b)=>a.date<b.date?-1:1).slice(0,6);
+  const el=document.getElementById('ovTasksList');
+  if(!el) return;
+  if(!upcoming.length){
+    el.innerHTML='<div style="color:var(--t3);font-size:13.5px;padding:8px 0">No upcoming tasks. All clear! 🎉</div>';
+  } else {
+    el.innerHTML=upcoming.map(t=>{
+      const dt=new Date(t.date+'T00:00:00');
+      const mon=dt.toLocaleDateString('en-US',{month:'short'});
+      const day=dt.getDate();
+      return `<div class="task-item">
+        <div class="upcoming-date-box" style="cursor:pointer" onclick="toggleTaskDone('${t.id}')">
+          <div class="mon">${mon}</div><div class="day">${day}</div>
+        </div>
+        <div class="task-info">
+          <div class="task-title${t.done==='Yes'?' done':''}">${t.priority==='High'?'<span class="task-prio-high">⚡ High</span> ':''}${esc(t.title)}</div>
+          <div class="task-meta">${esc(t.type||'Task')}${t.notes?` · ${esc(t.notes.slice(0,60))}${t.notes.length>60?'…':''}`:''}</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openTaskModal('${t.id}')" style="flex-shrink:0">Edit</button>
+      </div>`;
+    }).join('');
+  }
+  // Prospects summary card
+  const prEl=document.getElementById('ovProspectsSummary');
+  if(!prEl) return;
+  if(!prospects.length){
+    prEl.innerHTML='<div style="color:var(--t3);font-size:13.5px;padding:8px 0">No prospects yet. Add some to build your pipeline.</div>';
+    return;
+  }
+  const hot=prospects.filter(p=>p.status==='Hot');
+  const warm=prospects.filter(p=>p.status==='Warm');
+  const convCount=prospects.filter(p=>p.converted).length;
+  const convRate=prospects.length>0?(convCount/prospects.length*100).toFixed(0):0;
+  const totalTouches=prospects.reduce((s,p)=>s+(p.calls||0)+(p.emails||0)+(p.linkedins||0),0);
+  const avgTouches=prospects.length?(totalTouches/prospects.length).toFixed(1):'0';
+  const totalLocs=prospects.reduce((s,p)=>s+(p.locations||0),0);
+  prEl.innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--bdr)">
+        <span style="font-size:13px;color:var(--t2)">${prospects.length} prospects · <strong style="color:var(--acc)">${totalLocs} locations</strong></span>
+        <div style="display:flex;gap:6px">
+          ${hot.length?`<span class="badge b-hot"><span class="bd"></span>${hot.length} Hot</span>`:''}
+          ${warm.length?`<span class="badge b-warm"><span class="bd"></span>${warm.length} Warm</span>`:''}
+          ${convCount?`<span class="badge b-converted"><span class="bd"></span>${convCount} Converted</span>`:''}
+        </div>
+      </div>
+      ${hot.filter(p=>!p.converted).slice(0,3).map(p=>`<div style="display:flex;align-items:center;justify-content:space-between">
+        <div><div style="font-weight:600;font-size:13px">${esc(p.company)}</div><div style="font-size:11px;color:var(--t3)">${esc(p.contact)} · ${p.locations||0} loc · ${(p.calls||0)+(p.emails||0)+(p.linkedins||0)} touches</div></div>
+        ${tempB(p.status)}
+      </div>`).join('')}
+      <div style="font-size:12px;color:var(--t3);padding-top:4px;border-top:1px solid var(--bdr)">${totalTouches} total touches · ${convRate}% conversion rate</div>
+    </div>`;
+};
+
+// ── Modal escape key update ───────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') ['mModal','cModal','gModal','tkModal','prModal'].forEach(closeModal);
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function initApp(){
+  checkProspectConversions();
+  renderMStats();
+  renderMeetings();
+  renderOverview();
+}
+initApp();
+</script>
+</body>
+</html>
