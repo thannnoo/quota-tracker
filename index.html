@@ -324,6 +324,25 @@
     .row-happened { background:rgba(34,197,94,0.045) !important; }
     .row-happened:hover { background:rgba(34,197,94,0.09) !important; }
 
+    /* ── Note cards ── */
+    .note-card {
+      background:var(--glass); border:1px solid var(--bdr); border-radius:14px;
+      padding:16px; cursor:pointer; transition:all .18s;
+      box-shadow:var(--shadow); display:flex; flex-direction:column; gap:8px;
+      position:relative;
+    }
+    .note-card:hover { transform:translateY(-2px); box-shadow:0 8px 32px rgba(80,100,180,.15); }
+    .note-card.nc-yellow { border-left:4px solid #f59e0b; background:rgba(245,158,11,.05); }
+    .note-card.nc-blue   { border-left:4px solid #3b82f6; background:rgba(59,130,246,.05); }
+    .note-card.nc-green  { border-left:4px solid #22c55e; background:rgba(34,197,94,.05); }
+    .note-card.nc-red    { border-left:4px solid #ef4444; background:rgba(239,68,68,.05); }
+    .note-card.nc-purple { border-left:4px solid #8b5cf6; background:rgba(139,92,246,.05); }
+    .note-card-pin { position:absolute; top:12px; right:12px; font-size:14px; opacity:.7; }
+    .note-card-title { font-size:14px; font-weight:700; color:var(--t1); }
+    .note-card-body { font-size:13px; color:var(--t2); line-height:1.55; white-space:pre-wrap; word-break:break-word;
+      display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
+    .note-card-date { font-size:11px; color:var(--t3); margin-top:auto; padding-top:6px; border-top:1px solid var(--bdr); }
+
     /* ── Prospect rows ── */
     .prospect-row { cursor:pointer; }
     .prospect-row.p-selected { background:var(--acc-s) !important; }
@@ -667,6 +686,10 @@
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
     Statistics
   </button>
+  <button class="tab-btn" draggable="true" data-tab="notes" onclick="switchTab('notes',this)">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 2h12v10H2zM5 6h6M5 9h4"/></svg>
+    Notes
+  </button>
   <button class="tab-btn" draggable="true" data-tab="calendar" onclick="switchTab('calendar',this)">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     Calendar
@@ -954,6 +977,59 @@
   <div id="statsAccountContent" style="display:none"></div>
 </div>
 
+<!-- ══════════ NOTES ══════════ -->
+<div id="tab-notes" class="tab-panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <input type="text" class="search-input" id="noteSearch" placeholder="Search notes…" oninput="renderNotes()" style="min-width:200px"/>
+    </div>
+    <button class="btn btn-primary" onclick="openNoteModal()">+ New Note</button>
+  </div>
+  <div id="notesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px"></div>
+  <div id="notesEmpty" class="empty" style="display:none">
+    <div class="empty-icon">📝</div>
+    <h3>No notes yet</h3>
+    <p>Jot down anything you want to remember.</p>
+  </div>
+</div>
+
+<!-- Notes Modal -->
+<div class="modal-overlay" id="noteModal" onclick="onOvr(event,'noteModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="noteModalTitle">New Note</div>
+      <button class="modal-close" onclick="closeModal('noteModal')">✕</button>
+    </div>
+    <form onsubmit="saveNote(event)">
+      <div class="fgrid">
+        <div class="fg full"><label for="note_title">Title</label><input type="text" id="note_title" placeholder="Note title…"/></div>
+        <div class="fg full"><label for="note_body">Note</label><textarea id="note_body" rows="8" placeholder="Write anything here…" style="resize:vertical"></textarea></div>
+        <div class="fg"><label for="note_color">Color</label>
+          <select id="note_color">
+            <option value="default">Default</option>
+            <option value="yellow">Yellow</option>
+            <option value="blue">Blue</option>
+            <option value="green">Green</option>
+            <option value="red">Red</option>
+            <option value="purple">Purple</option>
+          </select>
+        </div>
+        <div class="fg"><label for="note_pinned">Pinned</label>
+          <select id="note_pinned">
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" id="noteDeleteBtn" style="display:none;margin-right:auto" onclick="delNoteFromModal()">Delete</button>
+        <button type="button" class="btn btn-ghost" onclick="closeModal('noteModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="noteSaveBtn">Save Note</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- ══════════ CALENDAR ══════════ -->
 <div id="tab-calendar" class="tab-panel">
   <div class="cal-header">
@@ -997,7 +1073,7 @@
         <div class="fsec">Contact Information</div>
         <div class="fg"><label for="f_ct">Contact Name *</label><input type="text" id="f_ct" placeholder="Jane Smith" required/></div>
         <div class="fg"><label for="f_ttl">Job Title</label><input type="text" id="f_ttl" placeholder="VP of Operations"/></div>
-        <div class="fg"><label for="f_ph">Phone</label><input type="tel" id="f_ph" placeholder="(555) 000-0000"/></div>
+        <div class="fg"><label for="f_ph">Phone</label><input type="tel" id="f_ph" placeholder="555-555-5555" oninput="fmtPhone(this)"/></div>
         <div class="fg"><label for="f_em">Email</label><input type="email" id="f_em" placeholder="jane@acme.com"/></div>
         <div class="fsec">Meeting Details</div>
         <div class="fg"><label for="f_loc">Locations</label><input type="number" id="f_loc" placeholder="1" min="1" oninput="updateCommHint()"/>
@@ -1140,7 +1216,7 @@
         <div class="fsec">Contact Information</div>
         <div class="fg"><label for="pr_ct">Contact Name *</label><input type="text" id="pr_ct" placeholder="Jane Smith" required/></div>
         <div class="fg"><label for="pr_ttl">Job Title</label><input type="text" id="pr_ttl" placeholder="VP of Operations"/></div>
-        <div class="fg"><label for="pr_ph">Phone</label><input type="tel" id="pr_ph" placeholder="(555) 000-0000"/></div>
+        <div class="fg"><label for="pr_ph">Phone</label><input type="tel" id="pr_ph" placeholder="555-555-5555" oninput="fmtPhone(this)"/></div>
         <div class="fg"><label for="pr_em">Email</label><input type="email" id="pr_em" placeholder="jane@acme.com"/></div>
         <div class="fsec">Status & Locations</div>
         <div class="fg"><label for="pr_st">Temperature</label>
@@ -1225,12 +1301,13 @@
 <script>
 // ── Storage ─────────────────────────────────────────────────────────────────
 const KM='lq_meetings_v2', KC='lq_comm_v2', KG='lq_goals_v1', KT='lq_theme';
-const KP='lq_prospects_v1', KTK='lq_tasks_v1', KTAB='lq_tab_order_v1';
+const KP='lq_prospects_v1', KTK='lq_tasks_v1', KTAB='lq_tab_order_v1', KN='lq_notes_v1';
 let meetings    = JSON.parse(localStorage.getItem(KM)||'[]');
 let commissions = JSON.parse(localStorage.getItem(KC)||'[]');
 let goals       = JSON.parse(localStorage.getItem(KG)||'{"bookings":20,"happened":15,"commission":5000}');
 let prospects   = JSON.parse(localStorage.getItem(KP)||'[]');
 let tasks       = JSON.parse(localStorage.getItem(KTK)||'[]');
+let notes       = JSON.parse(localStorage.getItem(KN)||'[]');
 meetings.forEach(m=>{ if(!m.id) m.id=uid(); m.title=m.title||''; m.email=m.email||''; });
 prospects.forEach(p=>{ if(!p.id) p.id=uid(); p.calls=p.calls||0; p.emails=p.emails||0; p.linkedins=p.linkedins||0; });
 
@@ -1250,11 +1327,12 @@ function saveAll(){
   localStorage.setItem(KG,JSON.stringify(goals));
   localStorage.setItem(KP,JSON.stringify(prospects));
   localStorage.setItem(KTK,JSON.stringify(tasks));
+  localStorage.setItem(KN,JSON.stringify(notes));
 }
 
 // ── Export / Import ──────────────────────────────────────────────────────────
 document.getElementById('exportBtn').addEventListener('click',()=>{
-  const data={meetings,commissions,goals,prospects,tasks,exportedAt:new Date().toISOString()};
+  const data={meetings,commissions,goals,prospects,tasks,notes,exportedAt:new Date().toISOString()};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -1276,6 +1354,7 @@ document.getElementById('importFile').addEventListener('change',e=>{
       goals=d.goals||{bookings:20,happened:15,commission:5000};
       prospects=d.prospects||[];
       tasks=d.tasks||[];
+      notes=d.notes||[];
       meetings.forEach(m=>{if(!m.id)m.id=uid();m.title=m.title||'';m.email=m.email||'';});
       prospects.forEach(p=>{if(!p.id)p.id=uid();p.calls=p.calls||0;p.emails=p.emails||0;p.linkedins=p.linkedins||0;});
       saveAll();
@@ -1337,6 +1416,7 @@ function switchTab(name,btn){
   if(name==='statistics'){ updateStatsRangeLabel(); renderStatistics(); }
   if(name==='calendar') renderCalendar();
   if(name==='prospects') renderProspects();
+  if(name==='notes') renderNotes();
 }
 function goToTab(name){
   const btn=document.querySelector(`.tab-btn[onclick*="'${name}'"]`);
@@ -1589,6 +1669,14 @@ function openMeetingModal(id=null, prefillDate=null, prefillTime=null){
   }
   openModal('mModal');
   setTimeout(()=>{ document.getElementById('f_co').focus(); updateCommHint(); },50);
+}
+
+// ── Phone formatter ──────────────────────────────────────────────────────────
+function fmtPhone(el){
+  let v=el.value.replace(/\D/g,'').slice(0,10);
+  if(v.length<=3)       el.value=v;
+  else if(v.length<=6)  el.value=v.slice(0,3)+'-'+v.slice(3);
+  else                  el.value=v.slice(0,3)+'-'+v.slice(3,6)+'-'+v.slice(6);
 }
 
 function calcCommission(locs){
@@ -2927,6 +3015,83 @@ function exportSelectedProspects(){
   toast(`${sel.length} prospect${sel.length!==1?'s':''} exported ✓`);
 }
 
+// ── Notes ─────────────────────────────────────────────────────────────────────
+let editNoteId=null;
+const NOTE_COLORS={default:'',yellow:'nc-yellow',blue:'nc-blue',green:'nc-green',red:'nc-red',purple:'nc-purple'};
+
+function renderNotes(){
+  const q=(document.getElementById('noteSearch')?.value||'').toLowerCase();
+  let d=notes.filter(n=>!q||`${n.title} ${n.body}`.toLowerCase().includes(q));
+  // pinned first, then newest
+  d.sort((a,b)=>{
+    if(a.pinned==='Yes'&&b.pinned!=='Yes') return -1;
+    if(b.pinned==='Yes'&&a.pinned!=='Yes') return 1;
+    return (b.updatedAt||b.createdAt||'')>(a.updatedAt||a.createdAt||'')?1:-1;
+  });
+  const grid=document.getElementById('notesGrid');
+  const empty=document.getElementById('notesEmpty');
+  if(!grid) return;
+  if(!d.length){grid.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  grid.innerHTML=d.map(n=>`
+    <div class="note-card ${NOTE_COLORS[n.color]||''}" onclick="openNoteModal('${n.id}')">
+      ${n.pinned==='Yes'?'<div class="note-card-pin">📌</div>':''}
+      ${n.title?`<div class="note-card-title">${esc(n.title)}</div>`:''}
+      <div class="note-card-body">${esc(n.body||'')}</div>
+      <div class="note-card-date">${n.updatedAt?'Edited '+fmtD(n.updatedAt.slice(0,10)):fmtD((n.createdAt||'').slice(0,10))}</div>
+    </div>`).join('');
+}
+
+function openNoteModal(id=null){
+  editNoteId=id;
+  document.getElementById('noteModalTitle').textContent=id?'Edit Note':'New Note';
+  document.getElementById('noteSaveBtn').textContent=id?'Save Changes':'Save Note';
+  document.getElementById('noteDeleteBtn').style.display=id?'':'none';
+  if(id){
+    const n=notes.find(x=>x.id===id);
+    if(n){
+      document.getElementById('note_title').value=n.title||'';
+      document.getElementById('note_body').value=n.body||'';
+      document.getElementById('note_color').value=n.color||'default';
+      document.getElementById('note_pinned').value=n.pinned||'No';
+    }
+  } else {
+    document.getElementById('note_title').value='';
+    document.getElementById('note_body').value='';
+    document.getElementById('note_color').value='default';
+    document.getElementById('note_pinned').value='No';
+  }
+  openModal('noteModal');
+  setTimeout(()=>document.getElementById('note_body').focus(),50);
+}
+
+function saveNote(e){
+  e.preventDefault();
+  const now=new Date().toISOString();
+  const n={
+    id:editNoteId||uid(),
+    title:document.getElementById('note_title').value.trim(),
+    body:document.getElementById('note_body').value.trim(),
+    color:document.getElementById('note_color').value,
+    pinned:document.getElementById('note_pinned').value,
+    createdAt:editNoteId?(notes.find(x=>x.id===editNoteId)||{}).createdAt||now:now,
+    updatedAt:editNoteId?now:undefined,
+  };
+  if(!n.body&&!n.title){toast('Note is empty');return;}
+  if(editNoteId){const i=notes.findIndex(x=>x.id===editNoteId);if(i!==-1)notes[i]=n;}
+  else notes.push(n);
+  saveAll(); closeModal('noteModal'); renderNotes();
+  toast(editNoteId?'Note updated ✓':'Note saved ✓');
+}
+
+function delNoteFromModal(){
+  if(!editNoteId) return;
+  if(!confirm('Delete this note?')) return;
+  notes=notes.filter(x=>x.id!==editNoteId);
+  saveAll(); closeModal('noteModal'); renderNotes();
+  toast('Note deleted');
+}
+
 // ── CSV Import for Prospects ──────────────────────────────────────────────────
 function parseCSV(text){
   const rows=[]; let cur='', inQ=false, row=[];
@@ -3121,7 +3286,7 @@ renderOverview=function(){
 
 // ── Modal escape key update ───────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape') ['mModal','cModal','gModal','tkModal','prModal'].forEach(closeModal);
+  if(e.key==='Escape') ['mModal','cModal','gModal','tkModal','prModal','noteModal'].forEach(closeModal);
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
