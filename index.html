@@ -490,16 +490,29 @@
     .gcur { font-size:36px; font-weight:800; letter-spacing:-1.5px; line-height:1; }
     .gof  { font-size:14px; color:var(--t3); font-weight:500; }
     .gtgt { font-size:20px; font-weight:700; color:var(--t2); }
-    .gptrack { height:8px; background:var(--bdr); border-radius:4px; overflow:hidden; margin-bottom:9px; }
-    .gpfill { height:100%; border-radius:4px; transition:width .6s cubic-bezier(.4,0,.2,1); }
+    .gptrack-wrap { position:relative; margin-bottom:9px; }
+    .gptrack { height:8px; background:var(--bdr); border-radius:4px; overflow:visible; position:relative; }
+    .gpfill { height:100%; border-radius:4px; transition:width .6s cubic-bezier(.4,0,.2,1); position:relative; z-index:1; overflow:hidden; }
     .gpfill.cg  { background:linear-gradient(90deg,#22c55e,#16a34a); }
     .gpfill.cam { background:linear-gradient(90deg,#f59e0b,#d97706); }
     .gpfill.cr  { background:linear-gradient(90deg,#ef4444,#dc2626); }
     .gpfill.ca  { background:linear-gradient(90deg,var(--acc),#a855f7); }
+    .gp-threshold {
+      position:absolute; top:-3px; width:3px; height:14px; border-radius:2px;
+      background:#f59e0b; z-index:2; transform:translateX(-50%);
+    }
+    .gp-threshold-label {
+      position:absolute; top:13px; font-size:10px; font-weight:700; color:#f59e0b;
+      transform:translateX(-50%); white-space:nowrap;
+    }
+    .gcard-actions { display:flex; gap:6px; align-items:center; }
+    .gcard-edit { background:none; border:none; cursor:pointer; color:var(--t3); padding:2px; border-radius:5px; transition:color .15s; font-size:13px; }
+    .gcard-edit:hover { color:var(--t1); }
     .gpace { font-size:12.5px; color:var(--t3); line-height:1.5; }
     .gpace.ot strong { color:#22c55e; }
     .gpace.bh strong { color:#ef4444; }
     .gpace.ex strong { color:var(--acc); }
+    .gthresh-row { font-size:11px; color:#f59e0b; font-weight:600; margin-bottom:4px; }
     .insight-card {
       background:var(--acc-s); border:1px solid rgba(79,126,248,.18);
       border-radius:16px; padding:18px 22px; display:flex; gap:14px; align-items:flex-start;
@@ -811,10 +824,13 @@
 <div id="tab-goals" class="tab-panel">
   <div class="goals-header">
     <div class="goals-month" id="goalMonthLabel"></div>
-    <button class="btn btn-ghost" onclick="openGoalsModal()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      Edit Goals
-    </button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" onclick="openGoalsModal()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit Goals
+      </button>
+      <button class="btn btn-primary" onclick="openCustomGoalModal()">+ Add Goal</button>
+    </div>
   </div>
   <div class="goals-grid" id="goalsGrid"></div>
   <div class="insight-card" id="insightCard"></div>
@@ -1139,21 +1155,57 @@
 </div>
 
 <!-- ══════════ GOALS MODAL ══════════ -->
-<div class="modal-overlay modal-sm" id="gModal" onclick="onOvr(event,'gModal')">
+<div class="modal-overlay" id="gModal" onclick="onOvr(event,'gModal')">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Monthly Goals</div>
+      <div class="modal-title">Edit Monthly Goals</div>
       <button class="modal-close" onclick="closeModal('gModal')">✕</button>
     </div>
     <form onsubmit="saveGoals(event)">
-      <div class="fgrid" style="grid-template-columns:1fr">
-        <div class="fg"><label for="g_bk">Meetings Booked / month</label><input type="number" id="g_bk" min="1"/></div>
-        <div class="fg"><label for="g_hp">Meetings Happened / month</label><input type="number" id="g_hp" min="1"/></div>
-        <div class="fg"><label for="g_cm">Commission Target ($ / month)</label><input type="number" id="g_cm" min="0" step="100"/></div>
+      <div class="fgrid">
+        <div class="fsec full" style="grid-column:1/-1">📅 Meetings Booked</div>
+        <div class="fg"><label for="g_bk">Target</label><input type="number" id="g_bk" min="1" placeholder="20"/></div>
+        <div class="fg"><label for="g_bk_thresh">Threshold <span style="font-size:10px;color:#f59e0b">(minimum floor)</span></label><input type="number" id="g_bk_thresh" min="0" placeholder="15"/></div>
+        <div class="fsec full" style="grid-column:1/-1">✅ Meetings Happened</div>
+        <div class="fg"><label for="g_hp">Target</label><input type="number" id="g_hp" min="1" placeholder="15"/></div>
+        <div class="fg"><label for="g_hp_thresh">Threshold</label><input type="number" id="g_hp_thresh" min="0" placeholder="10"/></div>
+        <div class="fsec full" style="grid-column:1/-1">💵 Commission Earned</div>
+        <div class="fg"><label for="g_cm">Target ($)</label><input type="number" id="g_cm" min="0" step="100" placeholder="5000"/></div>
+        <div class="fg"><label for="g_cm_thresh">Threshold ($)</label><input type="number" id="g_cm_thresh" min="0" step="100" placeholder="3000"/></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="closeModal('gModal')">Cancel</button>
         <button type="submit" class="btn btn-primary">Save Goals</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Custom Goal Modal -->
+<div class="modal-overlay" id="cgModal" onclick="onOvr(event,'cgModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="cgModalTitle">Add Custom Goal</div>
+      <button class="modal-close" onclick="closeModal('cgModal')">✕</button>
+    </div>
+    <form onsubmit="saveCustomGoal(event)">
+      <div class="fgrid">
+        <div class="fg"><label for="cg_name">Goal Name *</label><input type="text" id="cg_name" placeholder="e.g. Calls Made" required/></div>
+        <div class="fg"><label for="cg_icon">Emoji / Icon</label><input type="text" id="cg_icon" placeholder="📞" maxlength="4"/></div>
+        <div class="fg"><label for="cg_target">Target *</label><input type="number" id="cg_target" min="1" required placeholder="50"/></div>
+        <div class="fg"><label for="cg_thresh">Threshold <span style="font-size:10px;color:#f59e0b">(minimum floor)</span></label><input type="number" id="cg_thresh" min="0" placeholder="30"/></div>
+        <div class="fg"><label for="cg_type">Value Type</label>
+          <select id="cg_type">
+            <option value="number">Number</option>
+            <option value="money">Money ($)</option>
+          </select>
+        </div>
+        <div class="fg"><label for="cg_cur">Current Value</label><input type="number" id="cg_cur" min="0" placeholder="0"/></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" id="cgDeleteBtn" style="display:none;margin-right:auto" onclick="delCustomGoal()">Delete Goal</button>
+        <button type="button" class="btn btn-ghost" onclick="closeModal('cgModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="cgSaveBtn">Add Goal</button>
       </div>
     </form>
   </div>
@@ -1304,7 +1356,12 @@ const KM='lq_meetings_v2', KC='lq_comm_v2', KG='lq_goals_v1', KT='lq_theme';
 const KP='lq_prospects_v1', KTK='lq_tasks_v1', KTAB='lq_tab_order_v1', KN='lq_notes_v1';
 let meetings    = JSON.parse(localStorage.getItem(KM)||'[]');
 let commissions = JSON.parse(localStorage.getItem(KC)||'[]');
-let goals       = JSON.parse(localStorage.getItem(KG)||'{"bookings":20,"happened":15,"commission":5000}');
+let goals       = JSON.parse(localStorage.getItem(KG)||'{"bookings":{"target":20,"threshold":15},"happened":{"target":15,"threshold":10},"commission":{"target":5000,"threshold":3000},"custom":[]}');
+// Migrate old flat format
+if(typeof goals.bookings === 'number'){
+  goals={bookings:{target:goals.bookings,threshold:Math.floor(goals.bookings*.75)},happened:{target:goals.happened,threshold:Math.floor(goals.happened*.75)},commission:{target:goals.commission,threshold:Math.floor(goals.commission*.75)},custom:[]};
+}
+if(!goals.custom) goals.custom=[];
 let prospects   = JSON.parse(localStorage.getItem(KP)||'[]');
 let tasks       = JSON.parse(localStorage.getItem(KTK)||'[]');
 let notes       = JSON.parse(localStorage.getItem(KN)||'[]');
@@ -1457,17 +1514,17 @@ function renderOverview(){
   const commPaid  = commissions.filter(c=>c.paidOut==='Yes').reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
   const commPend  = commissions.filter(c=>c.paidOut!=='Yes').reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
   document.getElementById('ovStats').innerHTML=`
-    <div class="stat-card stat-link" onclick="goToTab('meetings')" title="Go to Meetings"><div class="stat-label">Booked This Month</div><div class="stat-val ca">${bookedMo}</div><div class="stat-sub">of ${goals.bookings} goal</div></div>
-    <div class="stat-card stat-link" onclick="goToTab('meetings')" title="Go to Meetings"><div class="stat-label">Happened This Month</div><div class="stat-val cg">${hapMo}</div><div class="stat-sub">of ${goals.happened} goal</div></div>
+    <div class="stat-card stat-link" onclick="goToTab('meetings')" title="Go to Meetings"><div class="stat-label">Booked This Month</div><div class="stat-val ca">${bookedMo}</div><div class="stat-sub">of ${goals.bookings.target} goal</div></div>
+    <div class="stat-card stat-link" onclick="goToTab('meetings')" title="Go to Meetings"><div class="stat-label">Happened This Month</div><div class="stat-val cg">${hapMo}</div><div class="stat-sub">of ${goals.happened.target} goal</div></div>
     <div class="stat-card stat-link" onclick="goToTab('commission')" title="Go to Commission"><div class="stat-label">Commission Earned</div><div class="stat-val cg">${fmtM(commPaid)}</div><div class="stat-sub">paid out</div></div>
     <div class="stat-card stat-link" onclick="goToTab('commission')" title="Go to Commission"><div class="stat-label">Commission Pending</div><div class="stat-val cam">${fmtM(commPend)}</div><div class="stat-sub">awaiting payout</div></div>
   `;
   drawBarChart();
   document.getElementById('ovGoalMonth').textContent=new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'});
   const gItems=[
-    {label:'Meetings Booked',  cur:bookedMo, goal:goals.bookings},
-    {label:'Meetings Happened',cur:hapMo,    goal:goals.happened},
-    {label:'Commission',       cur:commPaid, goal:goals.commission, money:true},
+    {label:'Meetings Booked',  cur:bookedMo, goal:goals.bookings.target},
+    {label:'Meetings Happened',cur:hapMo,    goal:goals.happened.target},
+    {label:'Commission',       cur:commPaid, goal:goals.commission.target, money:true},
   ];
   document.getElementById('ovGoalsMini').innerHTML=gItems.map(g=>{
     const pct=Math.min(g.goal>0?g.cur/g.goal:0,1);
@@ -1755,35 +1812,159 @@ function renderGoals(){
   const hp=meetings.filter(m=>m.happened==='Yes'&&inThisMonth(m.dateMeeting)).length;
   const cm=commissions.filter(c=>c.paidOut==='Yes'&&inThisMonth(c.date)).reduce((s,c)=>s+parseFloat(c.commAmount||0),0);
   const bdLeft=bizDaysLeft(), bdGone=bizDaysGone(), bdTotal=bizDaysInMonth();
-  function barC(p){return p>=1?'ca':p>=.7?'cg':p>=.4?'cam':'cr';}
-  function paceC(cur,goal){const p=goal>0?cur/goal:1;if(p>=1)return 'ex';const need=(goal-cur)/Math.max(bdLeft,1),pace=cur/Math.max(bdGone,1);return pace>=need?'ot':'bh';}
-  function paceText(cur,goal,isMoney=false){
-    const p=goal>0?cur/goal:1,left=Math.max(0,goal-cur),cls=paceC(cur,goal);
+
+  function barC(cur,target,thresh){
+    const p=target>0?cur/target:1;
+    if(p>=1) return 'ca';
+    if(thresh&&cur>=thresh) return 'cg';
+    if(p>=.4) return 'cam';
+    return 'cr';
+  }
+  function paceC(cur,target){const p=target>0?cur/target:1;if(p>=1)return 'ex';const need=(target-cur)/Math.max(bdLeft,1),pace=cur/Math.max(bdGone,1);return pace>=need?'ot':'bh';}
+  function paceText(cur,target,isMoney=false){
+    const p=target>0?cur/target:1,left=Math.max(0,target-cur),cls=paceC(cur,target);
     if(p>=1) return `<span class="${cls}"><strong>Goal exceeded! 🎉</strong></span>`;
     if(bdLeft<=0) return `<span class="bh"><strong>Month ended.</strong> Reached ${isMoney?fmtM(cur):cur}.</span>`;
     const pd=(left/bdLeft).toFixed(1);
     return `<span class="${cls}">Need <strong>${isMoney?fmtM(left):left} more</strong> in ${bdLeft} biz day${bdLeft!==1?'s':''} <span style="opacity:.55">(${isMoney?fmtM(left/bdLeft):pd}/day)</span></span>`;
   }
-  function gCard(lbl,icon,cur,goal,isMoney=false){
-    const p=Math.min(goal>0?cur/goal:0,1);
+
+  function gCard(lbl,icon,cur,target,thresh,isMoney=false,editFn=''){
+    const p=Math.min(target>0?cur/target:0,1);
+    const threshPct=thresh&&target>0?Math.min(thresh/target*100,100):null;
+    const cls=barC(cur,target,thresh);
+    const threshLabel=thresh?(isMoney?fmtM(thresh):thresh):null;
     return `<div class="gcard">
-      <div class="gcard-header"><div class="gcard-label">${lbl}</div><div style="font-size:20px;opacity:.65">${icon}</div></div>
-      <div class="gnums"><div class="gcur">${isMoney?fmtM(cur):cur}</div><div class="gof">of</div><div class="gtgt">${isMoney?fmtM(goal):goal}</div></div>
-      <div class="gptrack"><div class="gpfill ${barC(p)}" style="width:${(Math.min(p,1)*100).toFixed(1)}%"></div></div>
-      <div class="gpace">${paceText(cur,goal,isMoney)} <span style="opacity:.4;margin-left:6px">${(p*100).toFixed(0)}%</span></div>
+      <div class="gcard-header">
+        <div class="gcard-label">${lbl}</div>
+        <div class="gcard-actions">
+          ${editFn?`<button type="button" class="gcard-edit" onclick="${editFn}" title="Edit goal">✏️</button>`:''}
+          <div style="font-size:20px;opacity:.65">${icon}</div>
+        </div>
+      </div>
+      ${thresh?`<div class="gthresh-row">⚡ Threshold: ${threshLabel}</div>`:''}
+      <div class="gnums"><div class="gcur">${isMoney?fmtM(cur):cur}</div><div class="gof">of</div><div class="gtgt">${isMoney?fmtM(target):target}</div></div>
+      <div class="gptrack-wrap">
+        <div class="gptrack">
+          <div class="gpfill ${cls}" style="width:${(p*100).toFixed(1)}%"></div>
+        </div>
+        ${threshPct?`<div class="gp-threshold" style="left:${threshPct.toFixed(1)}%"></div><div class="gp-threshold-label" style="left:${threshPct.toFixed(1)}%">${threshLabel}</div>`:''}
+      </div>
+      <div class="gpace">${paceText(cur,target,isMoney)} <span style="opacity:.4;margin-left:6px">${(p*100).toFixed(0)}%</span></div>
     </div>`;
   }
-  document.getElementById('goalsGrid').innerHTML=gCard('Meetings Booked','📅',bk,goals.bookings)+gCard('Meetings Happened','✅',hp,goals.happened)+gCard('Commission Earned','💵',cm,goals.commission,true);
+
+  function gCardCustom(g){
+    const cur=g.current||0, target=g.target||1, thresh=g.threshold||0;
+    const isMoney=g.type==='money';
+    const p=Math.min(target>0?cur/target:0,1);
+    const threshPct=thresh&&target>0?Math.min(thresh/target*100,100):null;
+    const cls=barC(cur,target,thresh);
+    return `<div class="gcard">
+      <div class="gcard-header">
+        <div class="gcard-label">${esc(g.name)}</div>
+        <div class="gcard-actions">
+          <button type="button" class="gcard-edit" onclick="openCustomGoalModal('${g.id}')" title="Edit goal">✏️</button>
+          <div style="font-size:20px;opacity:.65">${g.icon||'🎯'}</div>
+        </div>
+      </div>
+      ${thresh?`<div class="gthresh-row">⚡ Threshold: ${isMoney?fmtM(thresh):thresh}</div>`:''}
+      <div class="gnums"><div class="gcur">${isMoney?fmtM(cur):cur}</div><div class="gof">of</div><div class="gtgt">${isMoney?fmtM(target):target}</div></div>
+      <div class="gptrack-wrap">
+        <div class="gptrack">
+          <div class="gpfill ${cls}" style="width:${(p*100).toFixed(1)}%"></div>
+        </div>
+        ${threshPct?`<div class="gp-threshold" style="left:${threshPct.toFixed(1)}%"></div><div class="gp-threshold-label" style="left:${threshPct.toFixed(1)}%">${isMoney?fmtM(thresh):thresh}</div>`:''}
+      </div>
+      <div class="gpace">
+        ${cur>=target?`<span class="ex"><strong>Goal exceeded! 🎉</strong></span>`
+          :thresh&&cur>=thresh?`<span class="ot"><strong>Above threshold</strong> — ${isMoney?fmtM(target-cur):(target-cur)} to target</span>`
+          :`<span class="bh">${isMoney?fmtM(target-cur):(target-cur)} remaining</span>`}
+        <span style="opacity:.4;margin-left:6px">${(p*100).toFixed(0)}%</span>
+      </div>
+    </div>`;
+  }
+
+  const bkG=goals.bookings, hpG=goals.happened, cmG=goals.commission;
+  let html=gCard('Meetings Booked','📅',bk,bkG.target,bkG.threshold,false,"openGoalsModal()")
+          +gCard('Meetings Happened','✅',hp,hpG.target,hpG.threshold,false,"openGoalsModal()")
+          +gCard('Commission Earned','💵',cm,cmG.target,cmG.threshold,true,"openGoalsModal()");
+  (goals.custom||[]).forEach(g=>{ html+=gCardCustom(g); });
+  document.getElementById('goalsGrid').innerHTML=html;
+
   const pace=bdGone>0?(bk/bdGone).toFixed(2):0, proj=Math.round(pace*bdTotal);
   let msg;
-  if(bk>=goals.bookings) msg='You\'ve hit your booking goal this month. Every extra meeting is ahead of quota. 🚀';
-  else if(bdLeft<=0) msg=`Month over. You booked <strong>${bk}</strong> of <strong>${goals.bookings}</strong>.`;
-  else{const need=Math.ceil((goals.bookings-bk)/Math.max(bdLeft,1)*10)/10;
-    msg=proj>=goals.bookings?`On pace — tracking at <strong>${pace}/biz day</strong>, projected ~<strong>${proj} meetings</strong> (goal: ${goals.bookings}). Keep it up.`:`Pacing at <strong>${pace} bookings/biz day</strong>, projecting ~<strong>${proj}</strong> by month end (goal: ${goals.bookings}). Need <strong>${need}/biz day</strong> to hit quota.`;}
+  if(bk>=bkG.target) msg='You\'ve hit your booking goal this month. Every extra meeting is ahead of quota. 🚀';
+  else if(bdLeft<=0) msg=`Month over. You booked <strong>${bk}</strong> of <strong>${bkG.target}</strong>.`;
+  else{const need=Math.ceil((bkG.target-bk)/Math.max(bdLeft,1)*10)/10;
+    msg=proj>=bkG.target?`On pace — tracking at <strong>${pace}/biz day</strong>, projected ~<strong>${proj} meetings</strong> (goal: ${bkG.target}). Keep it up.`:`Pacing at <strong>${pace} bookings/biz day</strong>, projecting ~<strong>${proj}</strong> by month end (goal: ${bkG.target}). Need <strong>${need}/biz day</strong> to hit quota.`;}
   document.getElementById('insightCard').innerHTML=`<div style="font-size:22px;flex-shrink:0">💡</div><div class="insight-text">${msg}</div>`;
 }
-function openGoalsModal(){document.getElementById('g_bk').value=goals.bookings;document.getElementById('g_hp').value=goals.happened;document.getElementById('g_cm').value=goals.commission;openModal('gModal');}
-function saveGoals(e){e.preventDefault();goals.bookings=parseInt(document.getElementById('g_bk').value)||20;goals.happened=parseInt(document.getElementById('g_hp').value)||15;goals.commission=parseFloat(document.getElementById('g_cm').value)||5000;saveAll();closeModal('gModal');renderGoals();toast('Goals saved ✓');}
+
+function openGoalsModal(){
+  const bkG=goals.bookings, hpG=goals.happened, cmG=goals.commission;
+  document.getElementById('g_bk').value=bkG.target;
+  document.getElementById('g_bk_thresh').value=bkG.threshold||'';
+  document.getElementById('g_hp').value=hpG.target;
+  document.getElementById('g_hp_thresh').value=hpG.threshold||'';
+  document.getElementById('g_cm').value=cmG.target;
+  document.getElementById('g_cm_thresh').value=cmG.threshold||'';
+  openModal('gModal');
+}
+function saveGoals(e){
+  e.preventDefault();
+  goals.bookings={target:parseInt(document.getElementById('g_bk').value)||20,threshold:parseInt(document.getElementById('g_bk_thresh').value)||0};
+  goals.happened={target:parseInt(document.getElementById('g_hp').value)||15,threshold:parseInt(document.getElementById('g_hp_thresh').value)||0};
+  goals.commission={target:parseFloat(document.getElementById('g_cm').value)||5000,threshold:parseFloat(document.getElementById('g_cm_thresh').value)||0};
+  saveAll();closeModal('gModal');renderGoals();toast('Goals saved ✓');
+}
+
+// ── Custom Goals ──────────────────────────────────────────────────────────────
+let editCgId=null;
+function openCustomGoalModal(id=null){
+  editCgId=id;
+  document.getElementById('cgModalTitle').textContent=id?'Edit Goal':'Add Custom Goal';
+  document.getElementById('cgSaveBtn').textContent=id?'Save Changes':'Add Goal';
+  document.getElementById('cgDeleteBtn').style.display=id?'':'none';
+  if(id){
+    const g=(goals.custom||[]).find(x=>x.id===id);
+    if(g){
+      document.getElementById('cg_name').value=g.name||'';
+      document.getElementById('cg_icon').value=g.icon||'';
+      document.getElementById('cg_target').value=g.target||'';
+      document.getElementById('cg_thresh').value=g.threshold||'';
+      document.getElementById('cg_type').value=g.type||'number';
+      document.getElementById('cg_cur').value=g.current||0;
+    }
+  } else {
+    ['cg_name','cg_icon','cg_target','cg_thresh'].forEach(f=>document.getElementById(f).value='');
+    document.getElementById('cg_type').value='number';
+    document.getElementById('cg_cur').value=0;
+  }
+  openModal('cgModal');
+  setTimeout(()=>document.getElementById('cg_name').focus(),50);
+}
+function saveCustomGoal(e){
+  e.preventDefault();
+  const g={
+    id:editCgId||uid(),
+    name:document.getElementById('cg_name').value.trim(),
+    icon:document.getElementById('cg_icon').value.trim()||'🎯',
+    target:parseFloat(document.getElementById('cg_target').value)||1,
+    threshold:parseFloat(document.getElementById('cg_thresh').value)||0,
+    type:document.getElementById('cg_type').value,
+    current:parseFloat(document.getElementById('cg_cur').value)||0,
+  };
+  if(!goals.custom) goals.custom=[];
+  if(editCgId){const i=goals.custom.findIndex(x=>x.id===editCgId);if(i!==-1)goals.custom[i]=g;}
+  else goals.custom.push(g);
+  saveAll();closeModal('cgModal');renderGoals();toast(editCgId?'Goal updated ✓':'Goal added ✓');
+}
+function delCustomGoal(){
+  if(!editCgId||!confirm('Delete this goal?')) return;
+  goals.custom=(goals.custom||[]).filter(x=>x.id!==editCgId);
+  saveAll();closeModal('cgModal');renderGoals();toast('Goal deleted');
+}
 
 // ── COMMISSION ────────────────────────────────────────────────────────────────
 function renderCommStats(){
@@ -3286,7 +3467,7 @@ renderOverview=function(){
 
 // ── Modal escape key update ───────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape') ['mModal','cModal','gModal','tkModal','prModal','noteModal'].forEach(closeModal);
+  if(e.key==='Escape') ['mModal','cModal','gModal','cgModal','tkModal','prModal','noteModal'].forEach(closeModal);
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
