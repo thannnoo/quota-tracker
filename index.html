@@ -774,7 +774,6 @@
     <button class="cal-view-btn" onclick="mQuickSet('Yes',this)">Happened</button>
     <button class="cal-view-btn" onclick="mQuickSet('No Show',this)">No Show</button>
     <button class="cal-view-btn" onclick="mQuickSet('Rescheduled',this)">Rescheduled</button>
-    <button class="cal-view-btn" onclick="mQuickSet('No',this)">Cancelled</button>
   </div>
   <div class="toolbar">
     <div class="toolbar-left">
@@ -791,7 +790,6 @@
         <option value="Yes">Happened</option>
         <option value="No Show">No Show</option>
         <option value="Rescheduled">Rescheduled</option>
-        <option value="No">Cancelled</option>
         <option value="Pending">Upcoming</option>
       </select>
       <select class="fsel" id="fLike" onchange="renderMeetings()">
@@ -1141,7 +1139,6 @@
             <option value="Yes">Happened</option>
             <option value="No Show">No Show</option>
             <option value="Rescheduled">Rescheduled</option>
-            <option value="No">Cancelled</option>
           </select>
         </div>
         <div class="fg full"><label for="f_mnotes">Notes</label><textarea id="f_mnotes" rows="3" placeholder="Context, talking points, follow-up details…" style="resize:vertical"></textarea></div>
@@ -1299,7 +1296,7 @@
         <div class="fg"><label for="pr_dba">DBA</label><input type="text" id="pr_dba" placeholder="The Corner Store"/></div>
         <div class="fsec">Contact Information</div>
         <div class="fg"><label for="pr_ct">Contact Name *</label><input type="text" id="pr_ct" placeholder="Jane Smith" required/></div>
-        <div class="fg"><label for="pr_ttl">Job Title</label><input type="text" id="pr_ttl" placeholder="VP of Operations"/></div>
+        <div class="fg"><label for="pr_ttl">Job Title</label><input type="text" id="pr_ttl" placeholder="VP of Operations" oninput="(function(){const a=autoIndustry(this.value);if(a&&!document.getElementById('pr_ind').value)document.getElementById('pr_ind').value=a;}).call(this)"/></div>
         <div class="fg"><label for="pr_ph">Phone</label><input type="tel" id="pr_ph" placeholder="555-555-5555" oninput="fmtPhone(this)"/></div>
         <div class="fg"><label for="pr_em">Email</label><input type="email" id="pr_em" placeholder="jane@acme.com"/></div>
         <div class="fsec">Status & Locations</div>
@@ -1407,7 +1404,12 @@ if(!goals.custom) goals.custom=[];
 let prospects   = JSON.parse(localStorage.getItem(KP)||'[]');
 let tasks       = JSON.parse(localStorage.getItem(KTK)||'[]');
 let notes       = JSON.parse(localStorage.getItem(KN)||'[]');
-meetings.forEach(m=>{ if(!m.id) m.id=uid(); m.title=m.title||''; m.email=m.email||''; });
+meetings.forEach(m=>{
+  if(!m.id) m.id=uid(); m.title=m.title||''; m.email=m.email||'';
+  // Migrate: "Pending" accepted → "No"; "No" (Cancelled) happened → "Pending"
+  if(m.accepted==='Pending') m.accepted='No';
+  if(m.happened==='No') m.happened='Pending';
+});
 prospects.forEach(p=>{ if(!p.id) p.id=uid(); p.calls=p.calls||0; p.emails=p.emails||0; p.linkedins=p.linkedins||0; });
 
 let editMId=null, editCId=null, editTkId=null, editPrId=null;
@@ -2984,6 +2986,19 @@ function tempB(v){
 function indIcon(v){
   return {'Real Estate':'🏢 ','Development':'🏗 ','Owner Operator':'👤 ','Franchisee':'🔑 '}[v]||'';
 }
+function autoIndustry(title){
+  if(!title) return '';
+  const t=title.toLowerCase();
+  // Franchisee first (most specific)
+  if(/franchis/.test(t)) return 'Franchisee';
+  // Development
+  if(/develop|construct|builder|build|general contractor|gc |project manager/.test(t)) return 'Development';
+  // Real Estate
+  if(/real estate|realtor|broker|leasing|property manager|property invest|realty/.test(t)) return 'Real Estate';
+  // Owner Operator
+  if(/owner|operator|proprietor|managing director|ceo|president|principal/.test(t)) return 'Owner Operator';
+  return '';
+}
 function adjTouch(field,dir){
   const el=document.getElementById('pr_'+field);
   const cur=parseInt(el.value||'0');
@@ -3048,7 +3063,7 @@ function openProspectModal(id=null){
       document.getElementById('pr_na_type').value=p.nextAction||'None';
       document.getElementById('pr_na_date').value=p.nextActionDate||'';
       document.getElementById('pr_notes').value=p.notes||'';
-      document.getElementById('pr_ind').value=p.industry||'';
+      document.getElementById('pr_ind').value=p.industry||autoIndustry(p.title||'');
     }
   } else {
     ['pr_co','pr_dba','pr_ct','pr_ttl','pr_ph','pr_em','pr_lt','pr_notes'].forEach(f=>document.getElementById(f).value='');
@@ -3100,7 +3115,7 @@ function saveProspect(e){
     nextAction:document.getElementById('pr_na_type').value,
     nextActionDate:document.getElementById('pr_na_date').value,
     notes:document.getElementById('pr_notes').value.trim(),
-    industry:document.getElementById('pr_ind').value,
+    industry:(()=>{ const manual=document.getElementById('pr_ind').value; return manual||autoIndustry(document.getElementById('pr_ttl').value.trim()); })(),
     dateAdded:editPrId?(prevP||{}).dateAdded||todayStr():todayStr(),
   };
   if(editPrId){const i=prospects.findIndex(x=>x.id===editPrId);if(i!==-1)prospects[i]=p;}
