@@ -323,6 +323,20 @@
     .meeting-row { cursor:pointer; }
     .row-happened { background:rgba(34,197,94,0.045) !important; }
     .row-happened:hover { background:rgba(34,197,94,0.09) !important; }
+    .row-noshow { background:rgba(239,68,68,0.045) !important; }
+    .row-noshow:hover { background:rgba(239,68,68,0.09) !important; }
+    /* Meeting selection */
+    .m-cb-cell { width:36px; padding:0 4px 0 10px !important; }
+    .m-cb { width:16px; height:16px; accent-color:var(--acc); cursor:pointer; flex-shrink:0; }
+    .meeting-row.m-selected { background:var(--acc-s) !important; }
+    .m-bulk-bar {
+      display:none; align-items:center; gap:10px; flex-wrap:wrap;
+      padding:9px 14px; margin-bottom:10px; border-radius:11px;
+      background:var(--acc-s); border:1.5px solid rgba(79,126,248,.25);
+      font-size:13px; font-weight:600; color:var(--acc);
+    }
+    .m-bulk-bar.visible { display:flex; }
+    .m-bulk-bar .btn { font-size:12px; padding:5px 12px; }
 
     /* ── Note cards ── */
     .note-card {
@@ -770,7 +784,7 @@
       </div>
       <select class="fsel" id="fAcc" onchange="renderMeetings()">
         <option value="">All Accepted</option>
-        <option value="Yes">Accepted</option><option value="No">Not Accepted</option><option value="Pending">Pending</option>
+        <option value="Yes">Accepted</option><option value="No">Not Accepted</option>
       </select>
       <select class="fsel" id="fHap" onchange="renderMeetings()">
         <option value="">All Status</option>
@@ -782,7 +796,7 @@
       </select>
       <select class="fsel" id="fLike" onchange="renderMeetings()">
         <option value="">All Likelihood</option>
-        <option value="Hot">Hot</option><option value="High">High</option>
+        <option value="High">High</option>
         <option value="Medium">Medium</option><option value="Low">Low</option>
       </select>
     </div>
@@ -794,10 +808,17 @@
       <button class="btn btn-primary" onclick="openMeetingModal()">+ Add Meeting</button>
     </div>
   </div>
+  <div class="m-bulk-bar" id="mBulkBar">
+    <span id="mBulkCount">0 selected</span>
+    <button class="btn btn-danger btn-sm" onclick="deleteSelectedMeetings()">🗑 Delete Selected</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportSelectedMeetings()">⬇ Export Selected</button>
+    <button class="btn btn-ghost btn-sm" onclick="clearMeetingSelection()">✕ Clear</button>
+  </div>
   <div class="tcard">
     <div class="twrap">
       <table class="t-meetings">
         <thead><tr>
+          <th class="m-cb-cell"><input type="checkbox" class="m-cb" id="mSelectAll" onclick="toggleAllMeetings(this)" title="Select all"></th>
           <th onclick="mSort('company')">Company <span class="si" id="ms-company">↕</span></th>
           <th onclick="mSort('contact')">Contact <span class="si" id="ms-contact">↕</span></th>
           <th onclick="mSort('title')">Title <span class="si" id="ms-title">↕</span></th>
@@ -809,6 +830,7 @@
           <th>Accepted</th>
           <th>Happened</th>
           <th onclick="mSort('likelihood')">Likelihood <span class="si" id="ms-likelihood">↕</span></th>
+          <th class="no-sort">Notes</th>
         </tr></thead>
         <tbody id="mBody"></tbody>
       </table>
@@ -910,6 +932,14 @@
       <select class="fsel" id="pFTitle" onchange="renderProspects()" style="max-width:160px">
         <option value="">All Titles</option>
       </select>
+      <select class="fsel" id="pFInd" onchange="renderProspects()">
+        <option value="">All Industries</option>
+        <option value="Real Estate">🏢 Real Estate</option>
+        <option value="Development">🏗 Development</option>
+        <option value="Owner Operator">👤 Owner Operator</option>
+        <option value="Franchisee">🔑 Franchisee</option>
+        <option value="Other">Other</option>
+      </select>
       <select class="fsel" id="pFConv" onchange="renderProspects()">
         <option value="">All Leads</option>
         <option value="yes">✅ Converted</option>
@@ -933,7 +963,7 @@
   </div>
   <div class="tcard">
     <div class="twrap">
-      <table class="t-prospects" style="min-width:1350px">
+      <table class="t-prospects" style="min-width:1480px">
         <thead><tr>
           <th class="p-cb-cell"><input type="checkbox" class="p-cb" id="pSelectAll" onclick="toggleAllProspects(this)" title="Select all"></th>
           <th onclick="pSort('company')">Company <span class="si" id="ps-company">↕</span></th>
@@ -941,6 +971,7 @@
           <th onclick="pSort('title')">Title <span class="si" id="ps-title">↕</span></th>
           <th>Phone / Email</th>
           <th onclick="pSort('status')">Status <span class="si" id="ps-status">↕</span></th>
+          <th class="no-sort">Industry</th>
           <th onclick="pSort('locations')" style="text-align:center">Locations <span class="si" id="ps-locations">↕</span></th>
           <th onclick="pSort('calls')" style="text-align:center">Calls <span class="si" id="ps-calls">↕</span></th>
           <th onclick="pSort('emails')" style="text-align:center">Emails <span class="si" id="ps-emails">↕</span></th>
@@ -1099,10 +1130,10 @@
         <div class="fg"><label for="f_dm">Meeting Date</label><input type="date" id="f_dm"/></div>
         <div class="fg"><label for="f_tm">Meeting Time</label><input type="time" id="f_tm"/></div>
         <div class="fg"><label for="f_lk">Likelihood</label>
-          <select id="f_lk"><option value="Hot">Hot</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select>
+          <select id="f_lk"><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select>
         </div>
         <div class="fg"><label for="f_ac">Accepted?</label>
-          <select id="f_ac"><option value="Pending">Pending</option><option value="Yes">Yes</option><option value="No">No</option></select>
+          <select id="f_ac"><option value="No">No</option><option value="Yes">Yes</option></select>
         </div>
         <div class="fg"><label for="f_hp">Outcome</label>
           <select id="f_hp">
@@ -1113,6 +1144,7 @@
             <option value="No">Cancelled</option>
           </select>
         </div>
+        <div class="fg full"><label for="f_mnotes">Notes</label><textarea id="f_mnotes" rows="3" placeholder="Context, talking points, follow-up details…" style="resize:vertical"></textarea></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-danger" id="mDeleteBtn" style="display:none;margin-right:auto" onclick="delMeetingFromModal()">Delete</button>
@@ -1271,6 +1303,16 @@
         <div class="fg"><label for="pr_ph">Phone</label><input type="tel" id="pr_ph" placeholder="555-555-5555" oninput="fmtPhone(this)"/></div>
         <div class="fg"><label for="pr_em">Email</label><input type="email" id="pr_em" placeholder="jane@acme.com"/></div>
         <div class="fsec">Status & Locations</div>
+        <div class="fg"><label for="pr_ind">Industry Group</label>
+          <select id="pr_ind">
+            <option value="">— None —</option>
+            <option value="Real Estate">🏢 Real Estate</option>
+            <option value="Development">🏗 Development</option>
+            <option value="Owner Operator">👤 Owner Operator</option>
+            <option value="Franchisee">🔑 Franchisee</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
         <div class="fg"><label for="pr_st">Temperature</label>
           <select id="pr_st">
             <option value="Cold">Cold</option>
@@ -1373,6 +1415,7 @@ let mSK='dateMeeting', mSD=1;
 let cSK='date', cSD=-1;
 let pSK='company', pSD=1;
 let selectedProspects=new Set();
+let selectedMeetings=new Set();
 let perfMode='month', perfCustomStart='', perfCustomEnd='';
 let statsRangePreset='all', statsRangeStart='', statsRangeEnd='';
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
@@ -1644,7 +1687,12 @@ function renderMeetings(){
   const tb=document.getElementById('mBody'), em=document.getElementById('mEmpty');
   if(!d.length){tb.innerHTML='';em.style.display='block';return;}
   em.style.display='none';
-  tb.innerHTML=d.map(m=>`<tr class="meeting-row${m.happened==='Yes'?' row-happened':''}" onclick="openMeetingModal('${m.id}')" title="Click to edit">
+  tb.innerHTML=d.map(m=>{
+    const noShow=m.happened==='No Show';
+    const happened=m.happened==='Yes';
+    const rowCls=`meeting-row${happened?' row-happened':''}${noShow?' row-noshow':''}${selectedMeetings.has(m.id)?' m-selected':''}`;
+    return `<tr class="${rowCls}" onclick="openMeetingModal('${m.id}')" title="Click to edit">
+    <td class="m-cb-cell" onclick="event.stopPropagation()"><input type="checkbox" class="m-cb" ${selectedMeetings.has(m.id)?'checked':''} onchange="toggleMeeting('${m.id}',this)"></td>
     <td><span class="tp">${esc(m.company)}</span></td>
     <td class="tm">${esc(m.contact)}</td>
     <td class="tsmall">${esc(m.title||'—')}</td>
@@ -1656,7 +1704,9 @@ function renderMeetings(){
     <td>${ynB(m.accepted)}</td>
     <td>${hapB(m.happened)}</td>
     <td>${likeB(m.likelihood)}</td>
-  </tr>`).join('');
+    <td class="tsmall" style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(m.notes||'')}">${esc(m.notes||'—')}</td>
+  </tr>`;
+  }).join('');
 }
 
 function mQuickSet(val, btn){
@@ -1711,16 +1761,17 @@ function openMeetingModal(id=null, prefillDate=null, prefillTime=null){
       document.getElementById('f_db').value=m.dateBooked||'';
       document.getElementById('f_dm').value=m.dateMeeting||'';
       document.getElementById('f_tm').value=m.timeMeeting||'';
-      document.getElementById('f_ac').value=m.accepted||'Pending';
+      document.getElementById('f_ac').value=m.accepted||'No';
       document.getElementById('f_hp').value=m.happened||'Pending';
       document.getElementById('f_lk').value=m.likelihood||'Medium';
+      document.getElementById('f_mnotes').value=m.notes||'';
     }
   } else {
-    ['f_co','f_ct','f_ttl','f_ph','f_em','f_dba','f_loc'].forEach(f=>document.getElementById(f).value='');
+    ['f_co','f_ct','f_ttl','f_ph','f_em','f_dba','f_loc','f_mnotes'].forEach(f=>document.getElementById(f).value='');
     document.getElementById('f_db').value=todayStr();
     document.getElementById('f_dm').value=prefillDate||'';
     document.getElementById('f_tm').value=prefillTime||'';
-    document.getElementById('f_ac').value='Pending';
+    document.getElementById('f_ac').value='No';
     document.getElementById('f_hp').value='Pending';
     document.getElementById('f_lk').value='Medium';
   }
@@ -1772,6 +1823,7 @@ function saveMeeting(e){
     accepted:document.getElementById('f_ac').value,
     happened:document.getElementById('f_hp').value,
     likelihood:document.getElementById('f_lk').value,
+    notes:document.getElementById('f_mnotes').value.trim(),
   };
   const prevHappened = prev?.happened || null;
   if(editMId){const i=meetings.findIndex(x=>x.id===editMId);if(i!==-1)meetings[i]=m;toast('Meeting updated ✓');}
@@ -1802,7 +1854,76 @@ function delMeetingFromModal(){
   if(!editMId) return;
   if(!confirm('Delete this meeting?')) return;
   meetings=meetings.filter(x=>x.id!==editMId);
+  selectedMeetings.delete(editMId);
   saveAll(); closeModal('mModal'); toast('Meeting deleted'); renderMStats(); renderMeetings();
+}
+
+// ── Meeting selection ────────────────────────────────────────────────────────
+function toggleMeeting(id, cb){
+  if(cb.checked) selectedMeetings.add(id);
+  else selectedMeetings.delete(id);
+  const row=cb.closest('tr');
+  if(row) row.classList.toggle('m-selected', cb.checked);
+  updateMBulkBar();
+}
+
+function toggleAllMeetings(cb){
+  document.querySelectorAll('#mBody .m-cb').forEach(c=>{
+    const match=c.getAttribute('onchange')?.match(/'([^']+)'/);
+    if(!match) return;
+    const mid=match[1];
+    if(cb.checked) selectedMeetings.add(mid);
+    else selectedMeetings.delete(mid);
+    c.checked=cb.checked;
+    const row=c.closest('tr');
+    if(row) row.classList.toggle('m-selected', cb.checked);
+  });
+  updateMBulkBar();
+}
+
+function updateMBulkBar(){
+  const n=selectedMeetings.size;
+  const bar=document.getElementById('mBulkBar');
+  const lbl=document.getElementById('mBulkCount');
+  if(bar) bar.classList.toggle('visible', n>0);
+  if(lbl) lbl.textContent=`${n} meeting${n!==1?'s':''} selected`;
+  const all=document.getElementById('mSelectAll');
+  if(all){
+    const vis=document.querySelectorAll('#mBody .m-cb');
+    all.indeterminate=n>0&&n<vis.length;
+    all.checked=n>0&&n>=vis.length;
+  }
+}
+
+function clearMeetingSelection(){
+  selectedMeetings.clear();
+  renderMeetings();
+  updateMBulkBar();
+}
+
+function deleteSelectedMeetings(){
+  if(!selectedMeetings.size) return;
+  if(!confirm(`Delete ${selectedMeetings.size} meeting${selectedMeetings.size!==1?'s':''}? This cannot be undone.`)) return;
+  meetings=meetings.filter(m=>!selectedMeetings.has(m.id));
+  selectedMeetings.clear();
+  saveAll(); toast('Selected meetings deleted'); renderMStats(); renderMeetings(); updateMBulkBar();
+}
+
+function exportSelectedMeetings(){
+  const sel=meetings.filter(m=>selectedMeetings.has(m.id));
+  if(!sel.length) return;
+  const headers=['Company','DBA','Contact','Title','Phone','Email','Locations','Date Booked','Meeting Date','Meeting Time','Accepted','Outcome','Likelihood','Notes'];
+  const rows=sel.map(m=>[
+    m.company||'',m.dba||'',m.contact||'',m.title||'',m.phone||'',m.email||'',
+    m.locations||'',m.dateBooked||'',m.dateMeeting||'',m.timeMeeting||'',
+    m.accepted||'',m.happened||'',m.likelihood||'',m.notes||''
+  ]);
+  const escC=v=>{ const s=String(v||''); return s.includes(',')||s.includes('"')||s.includes('\n')?`"${s.replace(/"/g,'""')}"`:s; };
+  const csv=[headers.map(escC).join(','),...rows.map(r=>r.map(escC).join(','))].join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`meetings-selected-${todayStr()}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  toast(`${sel.length} meetings exported ✓`);
 }
 
 // ── GOALS ─────────────────────────────────────────────────────────────────────
@@ -2860,6 +2981,9 @@ function tempB(v){
   const[c,l]=m[v]||['b-cold','Cold'];
   return `<span class="badge ${c}"><span class="bd"></span>${l}</span>`;
 }
+function indIcon(v){
+  return {'Real Estate':'🏢 ','Development':'🏗 ','Owner Operator':'👤 ','Franchisee':'🔑 '}[v]||'';
+}
 function adjTouch(field,dir){
   const el=document.getElementById('pr_'+field);
   const cur=parseInt(el.value||'0');
@@ -2924,9 +3048,11 @@ function openProspectModal(id=null){
       document.getElementById('pr_na_type').value=p.nextAction||'None';
       document.getElementById('pr_na_date').value=p.nextActionDate||'';
       document.getElementById('pr_notes').value=p.notes||'';
+      document.getElementById('pr_ind').value=p.industry||'';
     }
   } else {
     ['pr_co','pr_dba','pr_ct','pr_ttl','pr_ph','pr_em','pr_lt','pr_notes'].forEach(f=>document.getElementById(f).value='');
+    document.getElementById('pr_ind').value='';
     document.getElementById('pr_locs').value='';
     document.getElementById('pr_st').value='Cold';
     document.getElementById('pr_na_type').value='None';
@@ -2974,6 +3100,7 @@ function saveProspect(e){
     nextAction:document.getElementById('pr_na_type').value,
     nextActionDate:document.getElementById('pr_na_date').value,
     notes:document.getElementById('pr_notes').value.trim(),
+    industry:document.getElementById('pr_ind').value,
     dateAdded:editPrId?(prevP||{}).dateAdded||todayStr():todayStr(),
   };
   if(editPrId){const i=prospects.findIndex(x=>x.id===editPrId);if(i!==-1)prospects[i]=p;}
@@ -3043,6 +3170,7 @@ function renderProspects(){
   const fTch=document.getElementById('pFTouches')?.value||'';
   const fTtl=document.getElementById('pFTitle')?.value||'';
   const fConv=document.getElementById('pFConv')?.value||'';
+  const fInd=document.getElementById('pFInd')?.value||'';
   const today=todayStr();
 
   // Populate title dropdown
@@ -3058,6 +3186,7 @@ function renderProspects(){
     if(fTtl && p.title!==fTtl) return false;
     if(fConv==='yes' && !p.converted) return false;
     if(fConv==='no' && p.converted) return false;
+    if(fInd && p.industry!==fInd) return false;
     if(fAct==='overdue'){
       if(!p.nextActionDate||p.nextActionDate>=today||p.nextAction==='None') return false;
     } else if(fAct==='None'){
@@ -3070,7 +3199,7 @@ function renderProspects(){
       if(fTch==='6-10'&&(tot<6||tot>10)) return false;
       if(fTch==='10+'&&tot<=10) return false;
     }
-    if(q && !`${p.company} ${p.contact} ${p.dba} ${p.title} ${p.notes} ${p.email}`.toLowerCase().includes(q)) return false;
+    if(q && !`${p.company} ${p.contact} ${p.dba} ${p.title} ${p.notes} ${p.email} ${p.industry||''}`.toLowerCase().includes(q)) return false;
     return true;
   });
 
@@ -3111,6 +3240,7 @@ function renderProspects(){
     <td class="tsmall">${esc(p.title||'—')}</td>
     <td><div class="tsmall">${esc(p.phone||'—')}</div>${p.email?`<div class="ts" style="color:var(--acc);font-size:11px">${esc(p.email)}</div>`:''}</td>
     <td>${tempB(p.status)}${p.converted?`<div style="margin-top:4px"><span class="badge b-converted"><span class="bd"></span>Converted</span></div>`:''}</td>
+    <td class="tsmall">${p.industry?`<span class="badge" style="background:var(--acc-s);color:var(--acc);font-size:11px">${indIcon(p.industry)}${esc(p.industry)}</span>`:'—'}</td>
     <td style="text-align:center;font-weight:800;font-size:16px;color:var(--acc)">${p.locations||0}</td>
     <td style="text-align:center;font-weight:700;color:var(--acc)">${p.calls||0}</td>
     <td style="text-align:center;font-weight:700;color:var(--acc)">${p.emails||0}</td>
